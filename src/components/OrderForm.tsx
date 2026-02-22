@@ -47,13 +47,13 @@ const OrderForm = ({ plan, onClose }: Props) => {
       plan_title: plan.title,
       plan_price: plan.price,
       advance_amount: Number(advancePayment),
-    } as any).select().single();
+    }).select().single();
 
     if (error) {
       toast({ title: "Failed to submit order", description: error.message, variant: "destructive" });
       return;
     }
-    setOrderId((data as any).id);
+    setOrderId(data?.id ?? null);
     setStep("payment");
   };
 
@@ -79,7 +79,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
 
     const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(filePath);
 
-    await supabase.from("orders").update({ receipt_url: urlData.publicUrl } as any).eq("id", orderId);
+    await supabase.from("orders").update({ receipt_url: urlData.publicUrl }).eq("id", orderId);
 
     setUploading(false);
     setStep("success");
