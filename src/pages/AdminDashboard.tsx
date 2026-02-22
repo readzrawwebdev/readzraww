@@ -84,7 +84,7 @@ const AdminDashboard = () => {
     setUpdating(true);
     const { error } = await supabase
       .from("orders")
-      .update({ status, admin_notes: adminNotes || null } as any)
+      .update({ status, admin_notes: adminNotes || null })
       .eq("id", orderId);
     if (error) {
       toast({ title: "Update failed", description: error.message, variant: "destructive" });
