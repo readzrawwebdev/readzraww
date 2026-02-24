@@ -3,11 +3,11 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Services from "@/components/Services";
 import Portfolio from "@/components/Portfolio";
+import Testimonials from "@/components/Testimonials";
 import OrderForm from "@/components/OrderForm";
 import ChatBot from "@/components/ChatBot";
 import Footer from "@/components/Footer";
 import { ServicePlan } from "@/components/ServiceCard";
-
 const Index = () => {
   const [selectedPlan, setSelectedPlan] = useState<ServicePlan | null>(null);
 
@@ -17,6 +17,7 @@ const Index = () => {
       <Hero />
       <Services onBuy={setSelectedPlan} />
       <Portfolio />
+      <Testimonials />
       <Footer />
       <ChatBot />
       <OrderForm plan={selectedPlan} onClose={() => setSelectedPlan(null)} />
