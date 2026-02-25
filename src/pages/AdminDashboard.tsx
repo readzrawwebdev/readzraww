@@ -38,6 +38,27 @@ const statusLabels: Record<string, string> = {
   completed: "Completed",
 };
 
+const ReceiptImage = ({ filePath }: { filePath: string }) => {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    // If it's already a full URL (legacy), use directly; otherwise generate signed URL
+    if (filePath.startsWith("http")) {
+      setUrl(filePath);
+    } else {
+      supabase.storage.from("receipts").createSignedUrl(filePath, 3600).then(({ data }) => {
+        setUrl(data?.signedUrl ?? null);
+      });
+    }
+  }, [filePath]);
+  if (!url) return <p className="text-muted-foreground text-sm">Loading receipt...</p>;
+  return (
+    <div>
+      <p className="text-muted-foreground mb-2">Payment Receipt</p>
+      <img src={url} alt="Receipt" className="rounded-lg border border-border max-h-64 object-contain" />
+    </div>
+  );
+};
+
 const AdminDashboard = () => {
   const { user, isAdmin, loading, signOut } = useAuth();
   const navigate = useNavigate();
@@ -87,7 +108,8 @@ const AdminDashboard = () => {
       .update({ status, admin_notes: adminNotes || null })
       .eq("id", orderId);
     if (error) {
-      toast({ title: "Update failed", description: error.message, variant: "destructive" });
+      console.error("Order update error:", error);
+      toast({ title: "Update failed", description: "Unable to update order status. Please try again.", variant: "destructive" });
     } else {
       toast({ title: `Order ${statusLabels[status] || status}` });
       setSelectedOrder(null);
@@ -232,10 +254,7 @@ const AdminDashboard = () => {
               )}
 
               {selectedOrder.receipt_url && (
-                <div>
-                  <p className="text-muted-foreground mb-2">Payment Receipt</p>
-                  <img src={selectedOrder.receipt_url} alt="Receipt" className="rounded-lg border border-border max-h-64 object-contain" />
-                </div>
+                <ReceiptImage filePath={selectedOrder.receipt_url} />
               )}
 
               <div>
