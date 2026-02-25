@@ -4,6 +4,18 @@ import { X, Upload, CheckCircle2, Loader2 } from "lucide-react";
 import { ServicePlan } from "./ServiceCard";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
+
+const orderSchema = z.object({
+  name: z.string().trim().min(2, "Name must be at least 2 characters").max(100, "Name too long"),
+  email: z.string().trim().email("Invalid email address").max(255, "Email too long"),
+  phone: z.string().trim().min(10, "Phone number too short").max(20, "Phone number too long"),
+  businessName: z.string().max(200, "Business name too long").optional(),
+  details: z.string().max(2000, "Details too long (max 2000 chars)").optional(),
+});
+
+const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 interface Props {
   plan: ServicePlan | null;
@@ -32,25 +44,26 @@ const OrderForm = ({ plan, onClose }: Props) => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.phone) {
-      toast({ title: "Please fill all required fields", variant: "destructive" });
+    const validation = orderSchema.safeParse(formData);
+    if (!validation.success) {
+      toast({ title: "Validation error", description: validation.error.errors[0].message, variant: "destructive" });
       return;
     }
 
-    // Save order to database
     const { data, error } = await supabase.from("orders").insert({
-      customer_name: formData.name,
-      customer_email: formData.email,
-      customer_phone: formData.phone,
-      business_name: formData.businessName || null,
-      project_details: formData.details || null,
+      customer_name: validation.data.name,
+      customer_email: validation.data.email,
+      customer_phone: validation.data.phone,
+      business_name: validation.data.businessName || null,
+      project_details: validation.data.details || null,
       plan_title: plan.title,
       plan_price: plan.price,
       advance_amount: Number(advancePayment),
     }).select().single();
 
     if (error) {
-      toast({ title: "Failed to submit order", description: error.message, variant: "destructive" });
+      console.error("Order submit error:", error);
+      toast({ title: "Unable to submit order", description: "Please check your information and try again.", variant: "destructive" });
       return;
     }
     setOrderId(data?.id ?? null);
@@ -62,9 +75,20 @@ const OrderForm = ({ plan, onClose }: Props) => {
       toast({ title: "Please select your receipt image", variant: "destructive" });
       return;
     }
+
+    if (receiptFile.size > MAX_FILE_SIZE) {
+      toast({ title: "File too large", description: "Maximum file size is 5MB.", variant: "destructive" });
+      return;
+    }
+
+    if (!ALLOWED_FILE_TYPES.includes(receiptFile.type)) {
+      toast({ title: "Invalid file type", description: "Only JPEG, PNG, and WebP images are allowed.", variant: "destructive" });
+      return;
+    }
+
     setUploading(true);
 
-    const ext = receiptFile.name.split(".").pop();
+    const ext = receiptFile.type.split("/")[1] || "jpg";
     const filePath = `${orderId}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
@@ -72,14 +96,14 @@ const OrderForm = ({ plan, onClose }: Props) => {
       .upload(filePath, receiptFile, { upsert: true });
 
     if (uploadError) {
-      toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
+      console.error("Upload error:", uploadError);
+      toast({ title: "Upload failed", description: "Unable to upload receipt. Please try a different file or contact support.", variant: "destructive" });
       setUploading(false);
       return;
     }
 
-    const { data: urlData } = supabase.storage.from("receipts").getPublicUrl(filePath);
-
-    await supabase.from("orders").update({ receipt_url: urlData.publicUrl }).eq("id", orderId);
+    // Store file path (not public URL) since bucket is private
+    await supabase.from("orders").update({ receipt_url: filePath }).eq("id", orderId);
 
     setUploading(false);
     setStep("success");
@@ -133,27 +157,27 @@ const OrderForm = ({ plan, onClose }: Props) => {
             <form onSubmit={handleFormSubmit} className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-foreground">Full Name *</label>
-                <input type="text" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              <input type="text" maxLength={100} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Your full name" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Email *</label>
-                <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              <input type="email" maxLength={255} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="your@email.com" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Phone *</label>
-                <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              <input type="tel" maxLength={20} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="+92 xxx xxxxxxx" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Business Name</label>
-                <input type="text" value={formData.businessName} onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
+              <input type="text" maxLength={200} value={formData.businessName} onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Your business name" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Project Details</label>
-                <textarea value={formData.details} onChange={(e) => setFormData({ ...formData, details: e.target.value })} rows={3}
+              <textarea maxLength={2000} value={formData.details} onChange={(e) => setFormData({ ...formData, details: e.target.value })} rows={3}
                   className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" placeholder="Describe what you need..." />
               </div>
               <button type="submit" className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
