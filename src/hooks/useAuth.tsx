@@ -19,19 +19,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 10000): Promise<T> => {
+    return await Promise.race([
+      Promise.resolve(promiseLike),
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error("Request timeout")), ms)),
+    ]);
+  };
+
   const checkAdmin = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    setIsAdmin(!!data);
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .eq("role", "admin")
+          .maybeSingle()
+      );
+
+      if (error) {
+        console.error("Admin role check failed:", error);
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(!!data);
+    } catch (error) {
+      console.error("Unexpected admin role check error:", error);
+      setIsAdmin(false);
+    }
   };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        try {
+          setSession(session);
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            await checkAdmin(session.user.id);
+          } else {
+            setIsAdmin(false);
+          }
+        } finally {
+          setLoading(false);
+        }
+      }
+    );
+
+    const bootstrapAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -39,18 +77,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setIsAdmin(false);
         }
+      } finally {
         setLoading(false);
       }
-    );
+    };
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        checkAdmin(session.user.id);
-      }
-      setLoading(false);
-    });
+    bootstrapAuth();
 
     return () => subscription.unsubscribe();
   }, []);

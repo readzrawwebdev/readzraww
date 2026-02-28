@@ -24,6 +24,13 @@ interface Props {
 
 type Step = "form" | "payment" | "upload" | "success";
 
+const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 12000): Promise<T> => {
+  return await Promise.race([
+    Promise.resolve(promiseLike),
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("Request timeout")), ms)),
+  ]);
+};
+
 const OrderForm = ({ plan, onClose }: Props) => {
   const { toast } = useToast();
   const [step, setStep] = useState<Step>("form");
@@ -36,6 +43,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
   });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
 
   if (!plan) return null;
@@ -44,30 +52,50 @@ const OrderForm = ({ plan, onClose }: Props) => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+
     const validation = orderSchema.safeParse(formData);
     if (!validation.success) {
-      toast({ title: "Validation error", description: validation.error.errors[0].message, variant: "destructive" });
+      toast({
+        title: "Validation error",
+        description: validation.error.issues[0]?.message ?? "Please check your input and try again.",
+        variant: "destructive",
+      });
       return;
     }
 
-    const { data, error } = await supabase.from("orders").insert({
-      customer_name: validation.data.name,
-      customer_email: validation.data.email,
-      customer_phone: validation.data.phone,
-      business_name: validation.data.businessName || null,
-      project_details: validation.data.details || null,
-      plan_title: plan.title,
-      plan_price: plan.price,
-      advance_amount: Number(advancePayment),
-    }).select().single();
+    const newOrderId = crypto.randomUUID();
+    setSubmitting(true);
 
-    if (error) {
-      console.error("Order submit error:", error);
-      toast({ title: "Unable to submit order", description: "Please check your information and try again.", variant: "destructive" });
-      return;
+    try {
+      const { error } = await withTimeout(
+        supabase.from("orders").insert({
+          id: newOrderId,
+          customer_name: validation.data.name,
+          customer_email: validation.data.email,
+          customer_phone: validation.data.phone,
+          business_name: validation.data.businessName || null,
+          project_details: validation.data.details || null,
+          plan_title: plan.title,
+          plan_price: plan.price,
+          advance_amount: Number(advancePayment),
+        })
+      );
+
+      if (error) {
+        console.error("Order submit error:", error);
+        toast({ title: "Unable to submit order", description: "Please check your information and try again.", variant: "destructive" });
+        return;
+      }
+
+      setOrderId(newOrderId);
+      setStep("payment");
+    } catch (error) {
+      console.error("Unexpected order submit error:", error);
+      toast({ title: "Unable to submit order", description: "Please try again in a moment.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
     }
-    setOrderId(data?.id ?? null);
-    setStep("payment");
   };
 
   const handleUpload = async () => {
@@ -88,25 +116,36 @@ const OrderForm = ({ plan, onClose }: Props) => {
 
     setUploading(true);
 
-    const ext = receiptFile.type.split("/")[1] || "jpg";
-    const filePath = `${orderId}.${ext}`;
+    try {
+      const ext = receiptFile.type.split("/")[1] || "jpg";
+      const filePath = `${orderId}.${ext}`;
 
-    const { error: uploadError } = await supabase.storage
-      .from("receipts")
-      .upload(filePath, receiptFile, { upsert: true });
+      const { error: uploadError } = await withTimeout(
+        supabase.storage
+          .from("receipts")
+          .upload(filePath, receiptFile, { upsert: true })
+      );
 
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
-      toast({ title: "Upload failed", description: "Unable to upload receipt. Please try a different file or contact support.", variant: "destructive" });
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        toast({ title: "Upload failed", description: "Unable to upload receipt. Please try a different file or contact support.", variant: "destructive" });
+        return;
+      }
+
+      const { error: updateError } = await withTimeout(supabase.from("orders").update({ receipt_url: filePath }).eq("id", orderId));
+      if (updateError) {
+        console.error("Order update error:", updateError);
+        toast({ title: "Upload saved but order update failed", description: "Please contact support.", variant: "destructive" });
+        return;
+      }
+
+      setStep("success");
+    } catch (error) {
+      console.error("Unexpected upload error:", error);
+      toast({ title: "Upload failed", description: "Please try again in a moment.", variant: "destructive" });
+    } finally {
       setUploading(false);
-      return;
     }
-
-    // Store file path (not public URL) since bucket is private
-    await supabase.from("orders").update({ receipt_url: filePath }).eq("id", orderId);
-
-    setUploading(false);
-    setStep("success");
   };
 
   return (
@@ -157,17 +196,17 @@ const OrderForm = ({ plan, onClose }: Props) => {
             <form onSubmit={handleFormSubmit} className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-foreground">Full Name *</label>
-              <input type="text" maxLength={100} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                <input type="text" required maxLength={100} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Your full name" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Email *</label>
-              <input type="email" maxLength={255} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                <input type="email" required maxLength={255} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="your@email.com" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Phone *</label>
-              <input type="tel" maxLength={20} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                <input type="tel" required maxLength={20} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="+92 xxx xxxxxxx" />
               </div>
               <div>
@@ -180,8 +219,8 @@ const OrderForm = ({ plan, onClose }: Props) => {
               <textarea maxLength={2000} value={formData.details} onChange={(e) => setFormData({ ...formData, details: e.target.value })} rows={3}
                   className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" placeholder="Describe what you need..." />
               </div>
-              <button type="submit" className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
-                Continue to Payment
+              <button type="submit" disabled={submitting} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
+                {submitting ? "Submitting..." : "Continue to Payment"}
               </button>
             </form>
           )}
@@ -220,7 +259,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
                   <label className="cursor-pointer flex flex-col items-center gap-3">
                     <Upload className="text-muted-foreground" size={32} />
                     <p className="text-sm text-muted-foreground">Click to upload your payment receipt</p>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
+                    <input type="file" accept=".jpg,.jpeg,.png,.webp" className="hidden" onChange={(e) => setReceiptFile(e.target.files?.[0] || null)} />
                   </label>
                 )}
               </div>
