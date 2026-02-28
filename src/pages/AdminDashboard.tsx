@@ -69,6 +69,13 @@ const AdminDashboard = () => {
   const [adminNotes, setAdminNotes] = useState("");
   const [updating, setUpdating] = useState(false);
 
+  const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 12000): Promise<T> => {
+    return await Promise.race([
+      Promise.resolve(promiseLike),
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error("Request timeout")), ms)),
+    ]);
+  };
+
   useEffect(() => {
     if (!loading && (!user || !isAdmin)) {
       navigate("/admin/login");
@@ -77,12 +84,27 @@ const AdminDashboard = () => {
 
   const fetchOrders = async () => {
     setFetching(true);
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (!error && data) setOrders(data as Order[]);
-    setFetching(false);
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false })
+      );
+
+      if (error) {
+        console.error("Fetch orders error:", error);
+        toast({ title: "Unable to load orders", description: "Please refresh and try again.", variant: "destructive" });
+        return;
+      }
+
+      setOrders((data as Order[]) ?? []);
+    } catch (error) {
+      console.error("Unexpected fetch orders error:", error);
+      toast({ title: "Unable to load orders", description: "Request timed out. Please try again.", variant: "destructive" });
+    } finally {
+      setFetching(false);
+    }
   };
 
   useEffect(() => {
@@ -103,20 +125,30 @@ const AdminDashboard = () => {
 
   const updateOrderStatus = async (orderId: string, status: string) => {
     setUpdating(true);
-    const { error } = await supabase
-      .from("orders")
-      .update({ status, admin_notes: adminNotes || null })
-      .eq("id", orderId);
-    if (error) {
-      console.error("Order update error:", error);
-      toast({ title: "Update failed", description: "Unable to update order status. Please try again.", variant: "destructive" });
-    } else {
+    try {
+      const { error } = await withTimeout(
+        supabase
+          .from("orders")
+          .update({ status, admin_notes: adminNotes || null })
+          .eq("id", orderId)
+      );
+
+      if (error) {
+        console.error("Order update error:", error);
+        toast({ title: "Update failed", description: "Unable to update order status. Please try again.", variant: "destructive" });
+        return;
+      }
+
       toast({ title: `Order ${statusLabels[status] || status}` });
       setSelectedOrder(null);
       setAdminNotes("");
       fetchOrders();
+    } catch (error) {
+      console.error("Unexpected update order error:", error);
+      toast({ title: "Update failed", description: "Request timed out. Please try again.", variant: "destructive" });
+    } finally {
+      setUpdating(false);
     }
-    setUpdating(false);
   };
 
   if (loading) {
