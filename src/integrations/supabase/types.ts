@@ -30,6 +30,7 @@ export type Database = {
           receipt_url: string | null
           status: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           admin_notes?: string | null
@@ -46,6 +47,7 @@ export type Database = {
           receipt_url?: string | null
           status?: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           admin_notes?: string | null
@@ -62,6 +64,7 @@ export type Database = {
           receipt_url?: string | null
           status?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }

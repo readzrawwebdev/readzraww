@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/hooks/useAuth";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
+  const { user, loading } = useAuth();
 
   const links = [
     { label: "Services", href: "#services" },
@@ -29,12 +31,21 @@ const Navbar = () => {
               {l.label}
             </a>
           ))}
-          <a
-            href="#services"
-            className="rounded-lg bg-gradient-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105"
-          >
-            Get Started
-          </a>
+          {!loading && user ? (
+            <a
+              href="/dashboard"
+              className="flex items-center gap-2 rounded-lg bg-gradient-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105"
+            >
+              <User size={16} /> Dashboard
+            </a>
+          ) : (
+            <a
+              href="/login"
+              className="rounded-lg bg-gradient-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105"
+            >
+              Sign In
+            </a>
+          )}
         </div>
 
         {/* Mobile toggle */}
@@ -65,13 +76,23 @@ const Navbar = () => {
                   {l.label}
                 </a>
               ))}
-              <a
-                href="#services"
-                onClick={() => setOpen(false)}
-                className="rounded-lg bg-gradient-primary px-5 py-2.5 text-center text-sm font-semibold text-primary-foreground"
-              >
-                Get Started
-              </a>
+              {!loading && user ? (
+                <a
+                  href="/dashboard"
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-center gap-2 rounded-lg bg-gradient-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+                >
+                  <User size={16} /> Dashboard
+                </a>
+              ) : (
+                <a
+                  href="/login"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg bg-gradient-primary px-5 py-2.5 text-center text-sm font-semibold text-primary-foreground"
+                >
+                  Sign In
+                </a>
+              )}
             </div>
           </motion.div>
         )}

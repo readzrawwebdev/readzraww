@@ -4,6 +4,7 @@ import { X, Upload, CheckCircle2, Loader2 } from "lucide-react";
 import { ServicePlan } from "./ServiceCard";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { z } from "zod";
 
 const orderSchema = z.object({
@@ -33,6 +34,7 @@ const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 12000): Promise
 
 const OrderForm = ({ plan, onClose }: Props) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [step, setStep] = useState<Step>("form");
   const [formData, setFormData] = useState({
     name: "",
@@ -79,6 +81,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
           plan_title: plan.title,
           plan_price: plan.price,
           advance_amount: Number(advancePayment),
+          user_id: user?.id || null,
         })
       );
 
