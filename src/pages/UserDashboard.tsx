@@ -1,8 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { LogOut, Package, Clock, CheckCircle2, Loader2, User } from "lucide-react";
+import {
+  LogOut,
+  Package,
+  Clock,
+  CheckCircle2,
+  Loader2,
+  User,
+  Mail,
+  Calendar,
+  ShieldCheck,
+} from "lucide-react";
 
 interface Order {
   id: string;
@@ -64,6 +74,15 @@ const UserDashboard = () => {
     fetchOrders();
   }, [user]);
 
+  const stats = useMemo(
+    () => ({
+      total: orders.length,
+      inProgress: orders.filter((o) => o.status === "pending_review" || o.status === "in_progress").length,
+      completed: orders.filter((o) => o.status === "completed").length,
+    }),
+    [orders]
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -76,95 +95,121 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-xl sticky top-0 z-40">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <a href="/" className="font-heading text-xl font-bold text-gradient">ReadzRaw</a>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <User size={16} />
-              <span className="hidden sm:inline">{user.email}</span>
-            </div>
-            <button
-              onClick={() => { signOut(); navigate("/"); }}
-              className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <LogOut size={16} /> Logout
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              signOut();
+              navigate("/");
+            }}
+            className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LogOut size={16} /> Logout
+          </button>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Welcome */}
-        <div className="mb-8">
-          <h1 className="font-heading text-2xl font-bold text-foreground">My Dashboard</h1>
-          <p className="text-muted-foreground text-sm mt-1">Track your orders and project progress.</p>
-        </div>
+      <main className="container mx-auto px-4 py-8 max-w-6xl">
+        <h1 className="font-heading text-2xl md:text-3xl font-bold text-foreground mb-6">Account Dashboard</h1>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <div className="rounded-xl border border-border bg-card p-4 text-center">
-            <Package size={20} className="mx-auto text-primary mb-1" />
-            <p className="text-2xl font-bold font-heading text-foreground">{orders.length}</p>
-            <p className="text-xs text-muted-foreground">Total Orders</p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4 text-center">
-            <Clock size={20} className="mx-auto text-yellow-400 mb-1" />
-            <p className="text-2xl font-bold font-heading text-foreground">
-              {orders.filter(o => o.status === "pending_review" || o.status === "in_progress").length}
-            </p>
-            <p className="text-xs text-muted-foreground">In Progress</p>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4 text-center">
-            <CheckCircle2 size={20} className="mx-auto text-accent mb-1" />
-            <p className="text-2xl font-bold font-heading text-foreground">
-              {orders.filter(o => o.status === "completed").length}
-            </p>
-            <p className="text-xs text-muted-foreground">Completed</p>
-          </div>
-        </div>
-
-        {/* Orders */}
-        <h2 className="font-heading text-lg font-bold text-foreground mb-4">My Orders</h2>
-
-        {fetching ? (
-          <div className="flex justify-center py-16">
-            <Loader2 className="animate-spin text-primary" size={24} />
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-16 rounded-xl border border-border bg-card">
-            <Package size={40} className="mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground mb-4">You haven't placed any orders yet.</p>
-            <a
-              href="/#services"
-              className="inline-block rounded-lg bg-gradient-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105"
-            >
-              Browse Services
-            </a>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {orders.map((order) => (
-              <div key={order.id} className="rounded-xl border border-border bg-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <aside className="lg:col-span-1 space-y-4">
+            <section className="rounded-2xl border border-border bg-card p-5">
+              <div className="flex items-start justify-between">
                 <div>
-                  <p className="font-medium text-foreground">{order.plan_title}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Ordered {new Date(order.created_at).toLocaleDateString()} • Total: ${order.plan_price}
-                  </p>
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Profile</p>
+                  <h2 className="font-heading text-xl font-bold text-foreground mt-1">{user.user_metadata?.full_name || "ReadzRaw Client"}</h2>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className={`inline-block rounded-full border px-3 py-0.5 text-xs font-medium ${statusColors[order.status] || "bg-secondary text-secondary-foreground"}`}>
-                    {statusLabels[order.status] || order.status}
-                  </span>
-                  {order.receipt_url && (
-                    <span className="text-xs text-accent">Receipt uploaded</span>
-                  )}
+                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <User size={20} />
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+
+              <div className="mt-4 space-y-2 text-sm">
+                <p className="flex items-center gap-2 text-muted-foreground"><Mail size={14} /> {user.email}</p>
+                <p className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar size={14} /> Member since {new Date(user.created_at ?? Date.now()).toLocaleDateString()}
+                </p>
+                <p className="flex items-center gap-2 text-muted-foreground"><ShieldCheck size={14} /> Secure Google account access</p>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-border bg-card p-5">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Overview</p>
+              <div className="space-y-3">
+                <div className="rounded-xl bg-secondary/50 p-3 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Total Orders</span>
+                  <span className="font-heading text-lg font-bold text-foreground">{stats.total}</span>
+                </div>
+                <div className="rounded-xl bg-secondary/50 p-3 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">In Progress</span>
+                  <span className="font-heading text-lg font-bold text-foreground">{stats.inProgress}</span>
+                </div>
+                <div className="rounded-xl bg-secondary/50 p-3 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Completed</span>
+                  <span className="font-heading text-lg font-bold text-foreground">{stats.completed}</span>
+                </div>
+              </div>
+            </section>
+          </aside>
+
+          <section className="lg:col-span-2 rounded-2xl border border-border bg-card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-heading text-lg font-bold text-foreground">My Orders</h2>
+              <a href="/#services" className="text-sm text-primary hover:text-primary/80">Place new order</a>
+            </div>
+
+            {fetching ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="animate-spin text-primary" size={24} />
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="text-center py-16 rounded-xl border border-border bg-secondary/20">
+                <Package size={40} className="mx-auto text-muted-foreground mb-3" />
+                <p className="text-muted-foreground mb-4">You haven't placed any orders yet.</p>
+                <a
+                  href="/#services"
+                  className="inline-block rounded-lg bg-gradient-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-transform hover:scale-105"
+                >
+                  Browse Services
+                </a>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {orders.map((order) => (
+                  <article
+                    key={order.id}
+                    className="rounded-xl border border-border bg-secondary/20 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">{order.plan_title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Ordered {new Date(order.created_at).toLocaleDateString()} • Total: ${order.plan_price}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`inline-block rounded-full border px-3 py-0.5 text-xs font-medium ${
+                          statusColors[order.status] || "bg-secondary text-secondary-foreground"
+                        }`}
+                      >
+                        {statusLabels[order.status] || order.status}
+                      </span>
+                      {order.receipt_url ? (
+                        <span className="text-xs text-accent">Receipt uploaded</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Clock size={12} /> Receipt pending
+                        </span>
+                      )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       </main>
     </div>
   );
