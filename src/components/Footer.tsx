@@ -45,7 +45,10 @@ const Footer = () => {
         </div>
         <div className="mt-12 border-t border-border pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
           <p>© {new Date().getFullYear()} ReadzRaw. All rights reserved.</p>
-          <p>Built with ❤️ by ReadzRaw</p>
+          <div className="flex items-center gap-4">
+            <a href="/terms" className="hover:text-foreground transition-colors">Terms & Conditions</a>
+            <a href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</a>
+          </div>
         </div>
       </div>
     </footer>
