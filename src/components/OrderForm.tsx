@@ -5,6 +5,7 @@ import { ServicePlan } from "./ServiceCard";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 
 const orderSchema = z.object({
@@ -35,6 +36,7 @@ const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 12000): Promise
 const OrderForm = ({ plan, onClose }: Props) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState<Step>("form");
   const [formData, setFormData] = useState({
     name: "",
@@ -66,6 +68,17 @@ const OrderForm = ({ plan, onClose }: Props) => {
       return;
     }
 
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in with Google before placing an order.",
+        variant: "destructive",
+      });
+      onClose();
+      navigate("/login");
+      return;
+    }
+
     const newOrderId = crypto.randomUUID();
     setSubmitting(true);
 
@@ -81,7 +94,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
           plan_title: plan.title,
           plan_price: plan.price,
           advance_amount: Number(advancePayment),
-          user_id: user?.id || null,
+          user_id: user.id,
         })
       );
 
@@ -102,6 +115,13 @@ const OrderForm = ({ plan, onClose }: Props) => {
   };
 
   const handleUpload = async () => {
+    if (!user) {
+      toast({ title: "Sign in required", description: "Please sign in before uploading a receipt.", variant: "destructive" });
+      onClose();
+      navigate("/login");
+      return;
+    }
+
     if (!receiptFile || !orderId) {
       toast({ title: "Please select your receipt image", variant: "destructive" });
       return;
@@ -121,12 +141,12 @@ const OrderForm = ({ plan, onClose }: Props) => {
 
     try {
       const ext = receiptFile.type.split("/")[1] || "jpg";
-      const filePath = `${orderId}.${ext}`;
+      const filePath = `${user.id}/${orderId}.${ext}`;
 
       const { error: uploadError } = await withTimeout(
         supabase.storage
           .from("receipts")
-          .upload(filePath, receiptFile, { upsert: true })
+          .upload(filePath, receiptFile, { upsert: false })
       );
 
       if (uploadError) {
