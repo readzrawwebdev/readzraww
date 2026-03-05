@@ -10,6 +10,9 @@ import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import Login from "./pages/Login";
 import UserDashboard from "./pages/UserDashboard";
+import DashboardOrders from "./pages/DashboardOrders";
+import DashboardWishlist from "./pages/DashboardWishlist";
+import DashboardSettings from "./pages/DashboardSettings";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 
@@ -26,11 +29,13 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/dashboard" element={<UserDashboard />} />
+            <Route path="/dashboard/orders" element={<DashboardOrders />} />
+            <Route path="/dashboard/wishlist" element={<DashboardWishlist />} />
+            <Route path="/dashboard/settings" element={<DashboardSettings />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/terms" element={<TermsAndConditions />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
