@@ -37,8 +37,8 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-card text-center">
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-lg text-center">
         <a href="/" className="font-heading text-2xl font-bold text-gradient inline-block mb-2">ReadzRaw</a>
         <h1 className="font-heading text-xl font-bold text-foreground mb-1">Sign in to your account</h1>
         <p className="text-sm text-muted-foreground mb-8">Track your orders and project progress.</p>
@@ -46,7 +46,7 @@ const Login = () => {
         <button
           onClick={handleGoogleSignIn}
           disabled={signingIn}
-          className="w-full flex items-center justify-center gap-3 rounded-lg border border-border bg-secondary px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-surface-hover disabled:opacity-60"
+          className="w-full flex items-center justify-center gap-3 rounded-lg border border-border bg-background px-4 py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-60"
         >
           {signingIn ? (
             <Loader2 size={18} className="animate-spin" />

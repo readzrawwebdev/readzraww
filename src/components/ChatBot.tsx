@@ -102,7 +102,6 @@ const ChatBot = () => {
       }
     }
 
-    // Flush remaining
     if (textBuffer.trim()) {
       for (let raw of textBuffer.split("\n")) {
         if (!raw) continue;
@@ -171,7 +170,7 @@ const ChatBot = () => {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-24 right-6 z-40 w-[380px] max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card shadow-card overflow-hidden"
+            className="fixed bottom-24 right-6 z-40 w-[380px] max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card shadow-lg overflow-hidden"
           >
             {/* Header */}
             <div className="bg-gradient-primary px-5 py-4">
@@ -194,11 +193,11 @@ const ChatBot = () => {
                     className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
                       m.role === "user"
                         ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-secondary text-secondary-foreground rounded-bl-md"
+                        : "bg-muted text-foreground rounded-bl-md"
                     }`}
                   >
                     {m.role === "assistant" ? (
-                      <div className="prose prose-sm prose-invert max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
+                      <div className="prose prose-sm max-w-none [&>p]:my-1 [&>ul]:my-1 [&>ol]:my-1">
                         <ReactMarkdown>{m.content}</ReactMarkdown>
                       </div>
                     ) : (
@@ -209,7 +208,7 @@ const ChatBot = () => {
               ))}
               {isLoading && messages[messages.length - 1]?.role === "user" && (
                 <div className="flex justify-start">
-                  <div className="bg-secondary rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
                     <Loader2 size={16} className="animate-spin text-muted-foreground" />
                   </div>
                 </div>
@@ -223,7 +222,7 @@ const ChatBot = () => {
                   <button
                     key={q}
                     onClick={() => send(q)}
-                    className="rounded-full border border-border bg-secondary px-3 py-1 text-xs text-secondary-foreground hover:bg-surface-hover transition-colors"
+                    className="rounded-full border border-border bg-muted px-3 py-1 text-xs text-foreground hover:bg-muted/80 transition-colors"
                   >
                     {q}
                   </button>
@@ -239,7 +238,7 @@ const ChatBot = () => {
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && send(input)}
                 placeholder="Type a message..."
                 disabled={isLoading}
-                className="flex-1 rounded-lg border border-input bg-secondary px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+                className="flex-1 rounded-lg border border-input bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
               />
               <button
                 onClick={() => send(input)}

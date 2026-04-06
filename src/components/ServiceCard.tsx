@@ -24,9 +24,9 @@ const ServiceCard = ({ plan, index, onBuy }: Props) => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.15 }}
-      className={`relative rounded-2xl border p-8 flex flex-col ${
+      className={`relative rounded-2xl border p-8 flex flex-col shadow-card ${
         plan.popular
-          ? "border-primary/50 bg-primary/5 shadow-glow"
+          ? "border-primary/40 bg-primary/[0.03] shadow-glow"
           : "border-border bg-card"
       }`}
     >
@@ -46,7 +46,7 @@ const ServiceCard = ({ plan, index, onBuy }: Props) => {
 
       <ul className="space-y-3 mb-8 flex-1">
         {plan.features.map((f) => (
-          <li key={f} className="flex items-start gap-2 text-sm text-secondary-foreground">
+          <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
             <Check size={16} className="mt-0.5 shrink-0 text-accent" />
             {f}
           </li>
@@ -59,10 +59,7 @@ const ServiceCard = ({ plan, index, onBuy }: Props) => {
         </p>
         <div className="flex flex-wrap gap-2">
           {plan.examples.map((e) => (
-            <span
-              key={e}
-              className="rounded-md bg-secondary px-3 py-1 text-xs text-secondary-foreground"
-            >
+            <span key={e} className="rounded-md bg-muted px-3 py-1 text-xs text-foreground">
               {e}
             </span>
           ))}
@@ -74,7 +71,7 @@ const ServiceCard = ({ plan, index, onBuy }: Props) => {
         className={`w-full rounded-lg py-3 font-semibold transition-transform hover:scale-[1.02] ${
           plan.popular
             ? "bg-gradient-primary text-primary-foreground shadow-glow"
-            : "bg-secondary text-secondary-foreground hover:bg-surface-hover"
+            : "bg-muted text-foreground hover:bg-muted/80"
         }`}
       >
         Buy Now — ${plan.price}

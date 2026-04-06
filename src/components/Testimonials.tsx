@@ -70,9 +70,9 @@ const Testimonials = () => {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: i * 0.08 }}
-              className="relative rounded-2xl border border-border bg-card p-6 hover:border-primary/30 transition-colors"
+              className="relative rounded-2xl border border-border bg-card p-6 shadow-card hover:border-primary/30 transition-colors"
             >
-              <Quote size={24} className="text-primary/20 absolute top-4 right-4" />
+              <Quote size={24} className="text-primary/10 absolute top-4 right-4" />
 
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-primary text-sm font-bold text-primary-foreground">
@@ -90,7 +90,7 @@ const Testimonials = () => {
                 ))}
               </div>
 
-              <p className="text-sm text-secondary-foreground leading-relaxed">
+              <p className="text-sm text-muted-foreground leading-relaxed">
                 "{review.content}"
               </p>
             </motion.div>
