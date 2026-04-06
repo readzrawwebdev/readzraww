@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
-import { Loader2, Package, Clock, AlertCircle, MessageSquare } from "lucide-react";
+import { Loader2, Package, AlertCircle, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Order {
@@ -18,12 +18,12 @@ interface Order {
 }
 
 const statusColors: Record<string, string> = {
-  pending_review: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  approved: "bg-green-500/10 text-green-400 border-green-500/20",
-  rejected: "bg-red-500/10 text-red-400 border-red-500/20",
-  in_progress: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  completed: "bg-accent/10 text-accent border-accent/20",
-  cancelled: "bg-red-500/10 text-red-300 border-red-500/20",
+  pending_review: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  approved: "bg-green-50 text-green-700 border-green-200",
+  rejected: "bg-red-50 text-red-700 border-red-200",
+  in_progress: "bg-blue-50 text-blue-700 border-blue-200",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled: "bg-red-50 text-red-600 border-red-200",
 };
 
 const statusLabels: Record<string, string> = {
@@ -41,7 +41,6 @@ const DashboardOrders = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [fetching, setFetching] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const fetchOrders = async () => {
     if (!user) return;
@@ -83,7 +82,7 @@ const DashboardOrders = () => {
       {fetching ? (
         <div className="flex justify-center py-16"><Loader2 className="animate-spin text-primary" size={24} /></div>
       ) : orders.length === 0 ? (
-        <div className="text-center py-16 rounded-xl border border-border bg-card">
+        <div className="text-center py-16 rounded-xl border border-border bg-card shadow-card">
           <Package size={40} className="mx-auto text-muted-foreground mb-3" />
           <p className="text-muted-foreground mb-4">No orders yet</p>
           <a href="/#services" className="inline-block rounded-lg bg-gradient-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground">
@@ -93,12 +92,12 @@ const DashboardOrders = () => {
       ) : (
         <div className="space-y-4">
           {orders.map((order) => (
-            <div key={order.id} className="rounded-xl border border-border bg-card p-5">
+            <div key={order.id} className="rounded-xl border border-border bg-card p-5 shadow-card">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="font-heading font-bold text-foreground">{order.plan_title}</h3>
-                    <span className={`shrink-0 rounded-full border px-3 py-0.5 text-xs font-medium ${statusColors[order.status] || "bg-secondary"}`}>
+                    <span className={`shrink-0 rounded-full border px-3 py-0.5 text-xs font-medium ${statusColors[order.status] || "bg-muted"}`}>
                       {statusLabels[order.status] || order.status}
                     </span>
                   </div>

@@ -1,12 +1,12 @@
 import { useEffect, useState, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import {
   LogOut, CheckCircle2, XCircle, Eye, Clock, Loader2, RefreshCw,
-  LayoutDashboard, Package, BarChart3, ChevronLeft, Menu,
-  TrendingUp, Users, DollarSign, AlertCircle, Trash2,
+  LayoutDashboard, Package, ChevronLeft, Menu,
+  TrendingUp, Users, DollarSign, Trash2,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -31,12 +31,12 @@ interface Order {
 }
 
 const statusColors: Record<string, string> = {
-  pending_review: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  approved: "bg-green-500/10 text-green-400 border-green-500/20",
-  rejected: "bg-red-500/10 text-red-400 border-red-500/20",
-  in_progress: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  completed: "bg-accent/10 text-accent border-accent/20",
-  cancelled: "bg-red-500/10 text-red-300 border-red-500/20",
+  pending_review: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  approved: "bg-green-50 text-green-700 border-green-200",
+  rejected: "bg-red-50 text-red-700 border-red-200",
+  in_progress: "bg-blue-50 text-blue-700 border-blue-200",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled: "bg-red-50 text-red-600 border-red-200",
 };
 
 const statusLabels: Record<string, string> = {
@@ -133,7 +133,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // Analytics data
   const stats = useMemo(() => ({
     total: orders.length,
     pending: orders.filter((o) => o.status === "pending_review").length,
@@ -186,6 +185,10 @@ const AdminDashboard = () => {
     { label: "Orders", icon: Package, tab: "orders" as Tab },
   ];
 
+  const chartTooltipStyle = { background: "#fff", border: "1px solid hsl(220,13%,91%)", borderRadius: 8, color: "hsl(222,47%,11%)" };
+  const axisTick = { fill: "hsl(220,9%,46%)", fontSize: 12 };
+  const gridStroke = "hsl(220,13%,91%)";
+
   const Sidebar = () => (
     <aside className={`sticky top-0 h-screen border-r border-border bg-card flex flex-col transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
       <div className="flex items-center justify-between h-16 px-4 border-b border-border">
@@ -205,7 +208,7 @@ const AdminDashboard = () => {
             key={item.tab}
             onClick={() => { setTab(item.tab); setMobileOpen(false); }}
             className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-              tab === item.tab ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              tab === item.tab ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted"
             }`}
           >
             <item.icon size={18} />
@@ -227,7 +230,7 @@ const AdminDashboard = () => {
       <div className="hidden lg:block"><Sidebar /></div>
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <div className="relative z-50"><Sidebar /></div>
         </div>
       )}
@@ -246,15 +249,14 @@ const AdminDashboard = () => {
         <main className="flex-1 p-4 lg:p-8">
           {tab === "overview" && (
             <>
-              {/* Stats Cards */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 {[
                   { label: "Total Orders", value: stats.total, icon: Package, color: "text-primary" },
-                  { label: "Unique Customers", value: stats.uniqueCustomers, icon: Users, color: "text-blue-400" },
-                  { label: "Total Revenue", value: `$${stats.revenue}`, icon: DollarSign, color: "text-green-400" },
+                  { label: "Unique Customers", value: stats.uniqueCustomers, icon: Users, color: "text-blue-600" },
+                  { label: "Total Revenue", value: `$${stats.revenue}`, icon: DollarSign, color: "text-green-600" },
                   { label: "Advance Collected", value: `$${stats.collected}`, icon: TrendingUp, color: "text-accent" },
                 ].map((s) => (
-                  <div key={s.label} className="rounded-xl border border-border bg-card p-4">
+                  <div key={s.label} className="rounded-xl border border-border bg-card p-4 shadow-card">
                     <div className="flex items-center justify-between mb-2"><s.icon size={18} className={s.color} /></div>
                     <p className="text-2xl font-bold font-heading text-foreground">{s.value}</p>
                     <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
@@ -262,34 +264,32 @@ const AdminDashboard = () => {
                 ))}
               </div>
 
-              {/* Quick Stats Row */}
               <div className="grid grid-cols-3 gap-4 mb-8">
-                <div className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-4 text-center">
-                  <p className="text-2xl font-bold text-yellow-400">{stats.pending}</p>
+                <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-center">
+                  <p className="text-2xl font-bold text-yellow-700">{stats.pending}</p>
                   <p className="text-xs text-muted-foreground">Pending</p>
                 </div>
-                <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 text-center">
-                  <p className="text-2xl font-bold text-blue-400">{stats.active}</p>
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
+                  <p className="text-2xl font-bold text-blue-700">{stats.active}</p>
                   <p className="text-xs text-muted-foreground">Active</p>
                 </div>
-                <div className="rounded-xl border border-accent/20 bg-accent/5 p-4 text-center">
-                  <p className="text-2xl font-bold text-accent">{stats.completed}</p>
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+                  <p className="text-2xl font-bold text-emerald-700">{stats.completed}</p>
                   <p className="text-xs text-muted-foreground">Completed</p>
                 </div>
               </div>
 
-              {/* Charts */}
               <div className="grid lg:grid-cols-2 gap-6 mb-8">
-                <div className="rounded-xl border border-border bg-card p-5">
+                <div className="rounded-xl border border-border bg-card p-5 shadow-card">
                   <h3 className="font-heading font-bold text-foreground mb-4">Revenue Over Time</h3>
                   {monthlyRevenue.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <LineChart data={monthlyRevenue}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(225 18% 15%)" />
-                        <XAxis dataKey="month" tick={{ fill: "hsl(220 15% 50%)", fontSize: 12 }} />
-                        <YAxis tick={{ fill: "hsl(220 15% 50%)", fontSize: 12 }} />
-                        <Tooltip contentStyle={{ background: "hsl(225 22% 9%)", border: "1px solid hsl(225 18% 15%)", borderRadius: 8, color: "hsl(210 30% 96%)" }} />
-                        <Line type="monotone" dataKey="revenue" stroke="hsl(250 85% 65%)" strokeWidth={2} dot={{ fill: "hsl(250 85% 65%)" }} />
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                        <XAxis dataKey="month" tick={axisTick} />
+                        <YAxis tick={axisTick} />
+                        <Tooltip contentStyle={chartTooltipStyle} />
+                        <Line type="monotone" dataKey="revenue" stroke="hsl(250,85%,60%)" strokeWidth={2} dot={{ fill: "hsl(250,85%,60%)" }} />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
@@ -297,7 +297,7 @@ const AdminDashboard = () => {
                   )}
                 </div>
 
-                <div className="rounded-xl border border-border bg-card p-5">
+                <div className="rounded-xl border border-border bg-card p-5 shadow-card">
                   <h3 className="font-heading font-bold text-foreground mb-4">Orders by Status</h3>
                   {statusDistribution.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
@@ -307,7 +307,7 @@ const AdminDashboard = () => {
                             <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip contentStyle={{ background: "hsl(225 22% 9%)", border: "1px solid hsl(225 18% 15%)", borderRadius: 8, color: "hsl(210 30% 96%)" }} />
+                        <Tooltip contentStyle={chartTooltipStyle} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
@@ -315,16 +315,16 @@ const AdminDashboard = () => {
                   )}
                 </div>
 
-                <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
+                <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5 shadow-card">
                   <h3 className="font-heading font-bold text-foreground mb-4">Orders by Plan</h3>
                   {planDistribution.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart data={planDistribution}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(225 18% 15%)" />
-                        <XAxis dataKey="name" tick={{ fill: "hsl(220 15% 50%)", fontSize: 12 }} />
-                        <YAxis tick={{ fill: "hsl(220 15% 50%)", fontSize: 12 }} allowDecimals={false} />
-                        <Tooltip contentStyle={{ background: "hsl(225 22% 9%)", border: "1px solid hsl(225 18% 15%)", borderRadius: 8, color: "hsl(210 30% 96%)" }} />
-                        <Bar dataKey="value" fill="hsl(170 75% 50%)" radius={[6, 6, 0, 0]} />
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                        <XAxis dataKey="name" tick={axisTick} />
+                        <YAxis tick={axisTick} allowDecimals={false} />
+                        <Tooltip contentStyle={chartTooltipStyle} />
+                        <Bar dataKey="value" fill="hsl(170,75%,42%)" radius={[6, 6, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
@@ -337,18 +337,17 @@ const AdminDashboard = () => {
 
           {tab === "orders" && (
             <>
-              {/* Filters */}
               <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by name, email, or plan..."
-                  className="flex-1 rounded-lg border border-input bg-secondary px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="flex-1 rounded-lg border border-input bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-lg border border-input bg-secondary px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="rounded-lg border border-input bg-background px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="all">All Statuses</option>
                   {Object.entries(statusLabels).map(([k, v]) => (
@@ -357,16 +356,15 @@ const AdminDashboard = () => {
                 </select>
               </div>
 
-              {/* Orders Table */}
               {fetching ? (
                 <div className="flex justify-center py-16"><Loader2 className="animate-spin text-primary" size={24} /></div>
               ) : filteredOrders.length === 0 ? (
                 <div className="text-center py-16 text-muted-foreground">No orders found</div>
               ) : (
-                <div className="overflow-x-auto rounded-xl border border-border">
+                <div className="overflow-x-auto rounded-xl border border-border shadow-card">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-border bg-card">
+                      <tr className="border-b border-border bg-muted/50">
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground">Customer</th>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground">Plan</th>
                         <th className="text-left px-4 py-3 font-medium text-muted-foreground">Amount</th>
@@ -377,7 +375,7 @@ const AdminDashboard = () => {
                     </thead>
                     <tbody>
                       {filteredOrders.map((order) => (
-                        <tr key={order.id} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
+                        <tr key={order.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
                             <p className="font-medium text-foreground">{order.customer_name}</p>
                             <p className="text-xs text-muted-foreground">{order.customer_email}</p>
@@ -385,7 +383,7 @@ const AdminDashboard = () => {
                           <td className="px-4 py-3 text-foreground">{order.plan_title}</td>
                           <td className="px-4 py-3 text-foreground">${order.plan_price} / ${order.advance_amount}</td>
                           <td className="px-4 py-3">
-                            <span className={`inline-block rounded-full border px-3 py-0.5 text-xs font-medium ${statusColors[order.status] || "bg-secondary"}`}>
+                            <span className={`inline-block rounded-full border px-3 py-0.5 text-xs font-medium ${statusColors[order.status] || "bg-muted"}`}>
                               {statusLabels[order.status] || order.status}
                             </span>
                           </td>
@@ -406,10 +404,9 @@ const AdminDashboard = () => {
         </main>
       </div>
 
-      {/* Order Detail Modal */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4" onClick={() => setSelectedOrder(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl rounded-2xl border border-border bg-card p-8 shadow-card max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4" onClick={() => setSelectedOrder(null)}>
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl rounded-2xl border border-border bg-card p-8 shadow-lg max-h-[90vh] overflow-y-auto">
             <h3 className="font-heading text-xl font-bold text-foreground mb-4">Order Details</h3>
 
             <div className="space-y-3 text-sm">
@@ -439,7 +436,7 @@ const AdminDashboard = () => {
                   value={adminNotes}
                   onChange={(e) => setAdminNotes(e.target.value)}
                   rows={2}
-                  className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                  className="mt-1 w-full rounded-lg border border-input bg-background px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
                   placeholder="Add notes (visible to customer)..."
                 />
               </div>
@@ -461,7 +458,7 @@ const AdminDashboard = () => {
               <button onClick={() => { if (confirm("Delete this order permanently?")) deleteOrder(selectedOrder.id); }} className="flex items-center gap-2 rounded-lg border border-destructive/30 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive/10">
                 <Trash2 size={16} /> Delete
               </button>
-              <button onClick={() => setSelectedOrder(null)} className="ml-auto rounded-lg border border-border px-4 py-2 text-sm font-semibold text-secondary-foreground hover:bg-surface-hover">
+              <button onClick={() => setSelectedOrder(null)} className="ml-auto rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted">
                 Close
               </button>
             </div>

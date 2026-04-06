@@ -27,7 +27,6 @@ const AdminLogin = () => {
       setSubmitting(false);
       return;
     }
-    // Wait briefly for role check
     setTimeout(() => {
       navigate("/admin");
       setSubmitting(false);
@@ -35,8 +34,8 @@ const AdminLogin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-card">
+    <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-lg">
         <h1 className="font-heading text-2xl font-bold text-gradient mb-2">Admin Login</h1>
         <p className="text-sm text-muted-foreground mb-8">Sign in to manage orders and projects.</p>
 
@@ -47,7 +46,7 @@ const AdminLogin = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="mt-1 w-full rounded-lg border border-input bg-background px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="admin@readzraw.com"
               required
             />
@@ -58,7 +57,7 @@ const AdminLogin = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              className="mt-1 w-full rounded-lg border border-input bg-background px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="••••••••"
               required
             />

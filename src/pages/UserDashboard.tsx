@@ -18,12 +18,12 @@ interface Order {
 }
 
 const statusColors: Record<string, string> = {
-  pending_review: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  approved: "bg-green-500/10 text-green-400 border-green-500/20",
-  rejected: "bg-red-500/10 text-red-400 border-red-500/20",
-  in_progress: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  completed: "bg-accent/10 text-accent border-accent/20",
-  cancelled: "bg-red-500/10 text-red-300 border-red-500/20",
+  pending_review: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  approved: "bg-green-50 text-green-700 border-green-200",
+  rejected: "bg-red-50 text-red-700 border-red-200",
+  in_progress: "bg-blue-50 text-blue-700 border-blue-200",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  cancelled: "bg-red-50 text-red-600 border-red-200",
 };
 
 const statusLabels: Record<string, string> = {
@@ -79,11 +79,11 @@ const UserDashboard = () => {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { label: "Total Orders", value: stats.total, icon: Package, color: "text-primary" },
-          { label: "Active Projects", value: stats.active, icon: Clock, color: "text-blue-400" },
+          { label: "Active Projects", value: stats.active, icon: Clock, color: "text-blue-600" },
           { label: "Completed", value: stats.completed, icon: CheckCircle2, color: "text-accent" },
-          { label: "Total Invested", value: `$${stats.totalSpent}`, icon: TrendingUp, color: "text-green-400" },
+          { label: "Total Invested", value: `$${stats.totalSpent}`, icon: TrendingUp, color: "text-green-600" },
         ].map((s) => (
-          <div key={s.label} className="rounded-xl border border-border bg-card p-4">
+          <div key={s.label} className="rounded-xl border border-border bg-card p-4 shadow-card">
             <div className="flex items-center justify-between mb-2">
               <s.icon size={18} className={s.color} />
             </div>
@@ -96,10 +96,14 @@ const UserDashboard = () => {
       {/* Profile + Recent Orders */}
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Profile Card */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        <div className="rounded-xl border border-border bg-card p-5 shadow-card">
           <div className="flex items-center gap-3 mb-4">
-            <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-              <User size={22} />
+            <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center overflow-hidden">
+              {user?.user_metadata?.avatar_url ? (
+                <img src={user.user_metadata.avatar_url} alt="Avatar" className="h-12 w-12 rounded-full object-cover" />
+              ) : (
+                <User size={22} />
+              )}
             </div>
             <div>
               <p className="font-medium text-foreground">{user?.user_metadata?.full_name || "Client"}</p>
@@ -124,7 +128,7 @@ const UserDashboard = () => {
         </div>
 
         {/* Recent Orders */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5">
+        <div className="lg:col-span-2 rounded-xl border border-border bg-card p-5 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-heading text-lg font-bold text-foreground">Recent Orders</h3>
             <a href="/dashboard/orders" className="text-sm text-primary hover:text-primary/80">View All</a>
@@ -143,7 +147,7 @@ const UserDashboard = () => {
           ) : (
             <div className="space-y-3">
               {recentOrders.map((order) => (
-                <div key={order.id} className="rounded-lg border border-border bg-secondary/20 p-3 flex items-center justify-between gap-3">
+                <div key={order.id} className="rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium text-foreground text-sm truncate">{order.plan_title}</p>
                     <p className="text-xs text-muted-foreground">
@@ -153,7 +157,7 @@ const UserDashboard = () => {
                       <p className="text-xs text-primary mt-1 truncate">📝 {order.admin_notes}</p>
                     )}
                   </div>
-                  <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${statusColors[order.status] || "bg-secondary text-secondary-foreground"}`}>
+                  <span className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-medium ${statusColors[order.status] || "bg-muted text-foreground"}`}>
                     {statusLabels[order.status] || order.status}
                   </span>
                 </div>
