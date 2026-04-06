@@ -17,7 +17,7 @@ const orderSchema = z.object({
 });
 
 const ALLOWED_FILE_TYPES = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 interface Props {
   plan: ServicePlan | null;
@@ -38,13 +38,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("form");
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    businessName: "",
-    details: "",
-  });
+  const [formData, setFormData] = useState({ name: "", email: "", phone: "", businessName: "", details: "" });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -57,31 +51,19 @@ const OrderForm = ({ plan, onClose }: Props) => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-
     const validation = orderSchema.safeParse(formData);
     if (!validation.success) {
-      toast({
-        title: "Validation error",
-        description: validation.error.issues[0]?.message ?? "Please check your input and try again.",
-        variant: "destructive",
-      });
+      toast({ title: "Validation error", description: validation.error.issues[0]?.message ?? "Please check your input.", variant: "destructive" });
       return;
     }
-
     if (!user) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in with Google before placing an order.",
-        variant: "destructive",
-      });
+      toast({ title: "Sign in required", description: "Please sign in with Google before placing an order.", variant: "destructive" });
       onClose();
       navigate("/login");
       return;
     }
-
     const newOrderId = crypto.randomUUID();
     setSubmitting(true);
-
     try {
       const { error } = await withTimeout(
         supabase.from("orders").insert({
@@ -97,17 +79,13 @@ const OrderForm = ({ plan, onClose }: Props) => {
           user_id: user.id,
         })
       );
-
       if (error) {
-        console.error("Order submit error:", error);
         toast({ title: "Unable to submit order", description: "Please check your information and try again.", variant: "destructive" });
         return;
       }
-
       setOrderId(newOrderId);
       setStep("payment");
-    } catch (error) {
-      console.error("Unexpected order submit error:", error);
+    } catch {
       toast({ title: "Unable to submit order", description: "Please try again in a moment.", variant: "destructive" });
     } finally {
       setSubmitting(false);
@@ -121,55 +99,41 @@ const OrderForm = ({ plan, onClose }: Props) => {
       navigate("/login");
       return;
     }
-
     if (!receiptFile || !orderId) {
       toast({ title: "Please select your receipt image", variant: "destructive" });
       return;
     }
-
     if (receiptFile.size > MAX_FILE_SIZE) {
       toast({ title: "File too large", description: "Maximum file size is 5MB.", variant: "destructive" });
       return;
     }
-
     if (!ALLOWED_FILE_TYPES.includes(receiptFile.type)) {
       toast({ title: "Invalid file type", description: "Only JPEG, PNG, and WebP images are allowed.", variant: "destructive" });
       return;
     }
-
     setUploading(true);
-
     try {
       const ext = receiptFile.type.split("/")[1] || "jpg";
       const filePath = `${user.id}/${orderId}.${ext}`;
-
-      const { error: uploadError } = await withTimeout(
-        supabase.storage
-          .from("receipts")
-          .upload(filePath, receiptFile, { upsert: false })
-      );
-
+      const { error: uploadError } = await withTimeout(supabase.storage.from("receipts").upload(filePath, receiptFile, { upsert: false }));
       if (uploadError) {
-        console.error("Upload error:", uploadError);
-        toast({ title: "Upload failed", description: "Unable to upload receipt. Please try a different file or contact support.", variant: "destructive" });
+        toast({ title: "Upload failed", description: "Unable to upload receipt. Please try a different file.", variant: "destructive" });
         return;
       }
-
       const { error: updateError } = await withTimeout(supabase.from("orders").update({ receipt_url: filePath }).eq("id", orderId));
       if (updateError) {
-        console.error("Order update error:", updateError);
         toast({ title: "Upload saved but order update failed", description: "Please contact support.", variant: "destructive" });
         return;
       }
-
       setStep("success");
-    } catch (error) {
-      console.error("Unexpected upload error:", error);
+    } catch {
       toast({ title: "Upload failed", description: "Please try again in a moment.", variant: "destructive" });
     } finally {
       setUploading(false);
     }
   };
+
+  const inputClass = "mt-1 w-full rounded-lg border border-input bg-background px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 
   return (
     <AnimatePresence>
@@ -177,7 +141,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4"
         onClick={onClose}
       >
         <motion.div
@@ -185,7 +149,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
           onClick={(e) => e.stopPropagation()}
-          className="relative w-full max-w-lg rounded-2xl border border-border bg-card p-8 shadow-card max-h-[90vh] overflow-y-auto"
+          className="relative w-full max-w-lg rounded-2xl border border-border bg-card p-8 shadow-lg max-h-[90vh] overflow-y-auto"
         >
           <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
             <X size={20} />
@@ -205,12 +169,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
           {step !== "success" && (
             <div className="flex gap-2 mb-8">
               {(["form", "payment", "upload"] as Step[]).map((s, i) => (
-                <div
-                  key={s}
-                  className={`h-1.5 flex-1 rounded-full ${
-                    (["form", "payment", "upload"] as Step[]).indexOf(step) >= i ? "bg-gradient-primary" : "bg-secondary"
-                  }`}
-                />
+                <div key={s} className={`h-1.5 flex-1 rounded-full ${(["form", "payment", "upload"] as Step[]).indexOf(step) >= i ? "bg-gradient-primary" : "bg-muted"}`} />
               ))}
             </div>
           )}
@@ -219,28 +178,23 @@ const OrderForm = ({ plan, onClose }: Props) => {
             <form onSubmit={handleFormSubmit} className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-foreground">Full Name *</label>
-                <input type="text" required maxLength={100} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Your full name" />
+                <input type="text" required maxLength={100} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className={inputClass} placeholder="Your full name" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Email *</label>
-                <input type="email" required maxLength={255} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="your@email.com" />
+                <input type="email" required maxLength={255} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className={inputClass} placeholder="your@email.com" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Phone *</label>
-                <input type="tel" required maxLength={20} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="+92 xxx xxxxxxx" />
+                <input type="tel" required maxLength={20} value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className={inputClass} placeholder="+92 xxx xxxxxxx" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Business Name</label>
-              <input type="text" maxLength={200} value={formData.businessName} onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                  className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" placeholder="Your business name" />
+                <input type="text" maxLength={200} value={formData.businessName} onChange={(e) => setFormData({ ...formData, businessName: e.target.value })} className={inputClass} placeholder="Your business name" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Project Details</label>
-              <textarea maxLength={2000} value={formData.details} onChange={(e) => setFormData({ ...formData, details: e.target.value })} rows={3}
-                  className="mt-1 w-full rounded-lg border border-input bg-secondary px-4 py-2.5 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" placeholder="Describe what you need..." />
+                <textarea maxLength={2000} value={formData.details} onChange={(e) => setFormData({ ...formData, details: e.target.value })} rows={3} className={`${inputClass} resize-none`} placeholder="Describe what you need..." />
               </div>
               <button type="submit" disabled={submitting} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
                 {submitting ? "Submitting..." : "Continue to Payment"}
@@ -250,7 +204,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
 
           {step === "payment" && (
             <div className="space-y-6">
-              <div className="rounded-xl bg-secondary p-6 text-center">
+              <div className="rounded-xl bg-muted p-6 text-center">
                 <p className="text-sm text-muted-foreground mb-2">
                   Send <span className="font-bold text-foreground">${advancePayment}</span> (50% advance) via EasyPaisa to:
                 </p>
@@ -263,7 +217,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
               <button onClick={() => setStep("upload")} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
                 I've Sent Payment — Upload Receipt
               </button>
-              <button onClick={() => setStep("form")} className="w-full rounded-lg border border-border py-3 font-semibold text-secondary-foreground transition-colors hover:bg-surface-hover">
+              <button onClick={() => setStep("form")} className="w-full rounded-lg border border-border py-3 font-semibold text-foreground transition-colors hover:bg-muted">
                 Go Back
               </button>
             </div>
@@ -289,7 +243,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
               <button onClick={handleUpload} disabled={uploading} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
                 {uploading ? <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" /> Uploading...</span> : "Submit Receipt"}
               </button>
-              <button onClick={() => setStep("payment")} className="w-full rounded-lg border border-border py-3 font-semibold text-secondary-foreground transition-colors hover:bg-surface-hover">
+              <button onClick={() => setStep("payment")} className="w-full rounded-lg border border-border py-3 font-semibold text-foreground transition-colors hover:bg-muted">
                 Go Back
               </button>
             </div>
@@ -304,7 +258,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
               <p className="text-muted-foreground text-sm">
                 Your website will be ready in <span className="font-bold text-foreground">5 days</span>. We'll review your receipt and get started right away.
               </p>
-              <div className="rounded-xl bg-secondary p-4 text-sm text-muted-foreground">
+              <div className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">
                 For more info, contact us at{" "}
                 <a href="mailto:readzraw@gmail.com" className="text-primary font-medium">readzraw@gmail.com</a>
               </div>
