@@ -40,6 +40,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
   const [step, setStep] = useState<Step>("form");
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", businessName: "", details: "" });
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [trxId, setTrxId] = useState("");
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -103,6 +104,11 @@ const OrderForm = ({ plan, onClose }: Props) => {
       toast({ title: "Please select your receipt image", variant: "destructive" });
       return;
     }
+    const cleanTrx = trxId.trim();
+    if (cleanTrx.length < 6 || cleanTrx.length > 40) {
+      toast({ title: "Invalid transaction ID", description: "Please enter the EasyPaisa transaction (TRX) ID from your payment SMS.", variant: "destructive" });
+      return;
+    }
     if (receiptFile.size > MAX_FILE_SIZE) {
       toast({ title: "File too large", description: "Maximum file size is 5MB.", variant: "destructive" });
       return;
@@ -120,7 +126,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
         toast({ title: "Upload failed", description: "Unable to upload receipt. Please try a different file.", variant: "destructive" });
         return;
       }
-      const { error: updateError } = await withTimeout(supabase.from("orders").update({ receipt_url: filePath }).eq("id", orderId));
+      const { error: updateError } = await withTimeout(supabase.from("orders").update({ receipt_url: filePath, trx_id: cleanTrx } as never).eq("id", orderId));
       if (updateError) {
         toast({ title: "Upload saved but order update failed", description: "Please contact support.", variant: "destructive" });
         return;
@@ -225,6 +231,19 @@ const OrderForm = ({ plan, onClose }: Props) => {
 
           {step === "upload" && (
             <div className="space-y-6">
+              <div>
+                <label className="text-sm font-medium text-foreground">Transaction ID (TRX) *</label>
+                <input
+                  type="text"
+                  required
+                  maxLength={40}
+                  value={trxId}
+                  onChange={(e) => setTrxId(e.target.value)}
+                  className={inputClass}
+                  placeholder="e.g. 12345678901 from your EasyPaisa SMS"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">You'll find this in the confirmation SMS from EasyPaisa after sending payment.</p>
+              </div>
               <div className={`rounded-xl border-2 border-dashed p-8 text-center transition-colors ${receiptFile ? "border-accent bg-accent/5" : "border-border"}`}>
                 {receiptFile ? (
                   <div className="flex flex-col items-center gap-2">
