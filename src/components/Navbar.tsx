@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Menu, X, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
+import logo from "@/assets/readzraw-mark.png";
 
 const Navbar = () => {
   const [open, setOpen] = useState(false);
@@ -16,8 +17,9 @@ const Navbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <a href="#" className="font-heading text-2xl font-bold text-gradient">
-          ReadzRaw
+        <a href="#" className="flex items-center gap-2.5">
+          <img src={logo} alt="ReadzRaw logo" className="h-9 w-9 rounded-lg object-contain" />
+          <span className="font-heading text-2xl font-bold text-gradient">ReadzRaw</span>
         </a>
 
         {/* Desktop */}
