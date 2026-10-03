@@ -29,6 +29,7 @@ export type Database = {
           project_details: string | null
           receipt_url: string | null
           status: string
+          trx_id: string | null
           updated_at: string
           user_id: string | null
         }
@@ -46,6 +47,7 @@ export type Database = {
           project_details?: string | null
           receipt_url?: string | null
           status?: string
+          trx_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
@@ -63,6 +65,7 @@ export type Database = {
           project_details?: string | null
           receipt_url?: string | null
           status?: string
+          trx_id?: string | null
           updated_at?: string
           user_id?: string | null
         }
