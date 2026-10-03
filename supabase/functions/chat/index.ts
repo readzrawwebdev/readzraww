@@ -49,7 +49,7 @@ How Orders Work:
 
 Why Choose ReadzRaw:
 - Affordable pricing without compromising quality
-- 5-day guaranteed delivery
+- 15-day guaranteed delivery
 - Modern tech stack (React, Tailwind, etc.)
 - Free hosting consultation
 - Post-delivery support for 7 days

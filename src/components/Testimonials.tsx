@@ -5,7 +5,7 @@ const reviews = [
   {
     name: "Ahmed Raza",
     role: "Founder, TechVista",
-    content: "ReadzRaw delivered our e-commerce platform in just 5 days. The design was clean, modern, and exactly what we needed. Sales increased by 40% in the first month!",
+    content: "ReadzRaw delivered our e-commerce platform in just 15 days. The design was clean, modern, and exactly what we needed. Sales increased by 40% in the first month!",
     rating: 5,
     avatar: "AR",
   },

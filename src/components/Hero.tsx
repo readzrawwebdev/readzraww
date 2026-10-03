@@ -66,7 +66,7 @@ const Hero = () => {
           {[
             { num: "50+", label: "Projects Delivered" },
             { num: "100%", label: "Client Satisfaction" },
-            { num: "5 Day", label: "Fast Delivery" },
+            { num: "15 Day", label: "Fast Delivery" },
           ].map((s, i) => (
             <motion.div
               key={s.label}
