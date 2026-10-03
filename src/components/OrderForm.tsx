@@ -268,17 +268,54 @@ const OrderForm = ({ plan, onClose }: Props) => {
             </div>
           )}
 
-          {step === "success" && (
-            <div className="text-center space-y-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent/10">
-                <CheckCircle2 className="text-accent" size={36} />
+          {step === "success" && orderId && (
+            <div className="space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-accent/10">
+                  <CheckCircle2 className="text-accent" size={26} />
+                </div>
+                <div>
+                  <h3 className="font-heading text-xl font-bold text-foreground">Payment Submitted!</h3>
+                  <p className="text-xs text-muted-foreground">We'll verify your receipt and start right away.</p>
+                </div>
               </div>
-              <h3 className="font-heading text-xl font-bold text-foreground">Payment Received!</h3>
-              <p className="text-muted-foreground text-sm">
-                Your website will be ready in <span className="font-bold text-foreground">5 days</span>. We'll review your receipt and get started right away.
-              </p>
-              <div className="rounded-xl bg-muted p-4 text-sm text-muted-foreground">
-                For more info, contact us at{" "}
+
+              {/* Official Invoice */}
+              <div className="rounded-xl border border-border bg-muted/40 overflow-hidden">
+                <div className="flex items-center justify-between border-b border-border bg-muted px-5 py-3">
+                  <span className="font-heading text-sm font-bold tracking-wide text-foreground">READZRAW — INVOICE</span>
+                  <span className="text-xs font-mono text-muted-foreground">INV-RDZ-{orderId.slice(0, 8).toUpperCase()}</span>
+                </div>
+                <div className="px-5 py-4 space-y-3 text-sm">
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Billed to</span>
+                    <span className="text-right font-medium text-foreground">{formData.name}<br /><span className="text-xs text-muted-foreground">{formData.email}</span></span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Package</span>
+                    <span className="font-medium text-foreground">{plan.title}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Delivery window</span>
+                    <span className="font-medium text-foreground">15 days</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground">Transaction ID</span>
+                    <span className="font-mono text-xs font-medium text-foreground">{trxId.trim()}</span>
+                  </div>
+                  <div className="border-t border-dashed border-border pt-3 space-y-2">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="font-medium text-foreground">${plan.price}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Advance paid (50%)</span><span className="font-medium text-accent">${advancePayment}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Balance on delivery</span><span className="font-bold text-foreground">${plan.price - Number(advancePayment)}</span></div>
+                  </div>
+                </div>
+                <div className="border-t border-border px-5 py-3 text-center text-xs text-muted-foreground">
+                  Save this invoice — you'll need the invoice number for any support query.
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-muted p-4 text-sm text-muted-foreground text-center">
+                Questions? Contact us at{" "}
                 <a href="mailto:readzraw@gmail.com" className="text-primary font-medium">readzraw@gmail.com</a>
               </div>
               <button onClick={onClose} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
