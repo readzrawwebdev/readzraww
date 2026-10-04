@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import AdminInquiries from "@/components/AdminInquiries";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -401,6 +402,7 @@ const AdminDashboard = () => {
               )}
             </>
           )}
+          <AdminInquiries />
         </main>
       </div>
 
