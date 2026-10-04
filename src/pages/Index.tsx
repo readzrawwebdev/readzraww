@@ -8,6 +8,7 @@ import OrderForm from "@/components/OrderForm";
 import ChatBot from "@/components/ChatBot";
 import Footer from "@/components/Footer";
 import Founder from "@/components/Founder";
+import WhatsAppButton from "@/components/WhatsAppButton";
 import { ServicePlan } from "@/components/ServiceCard";
 const Index = () => {
   const [selectedPlan, setSelectedPlan] = useState<ServicePlan | null>(null);
@@ -22,6 +23,7 @@ const Index = () => {
       <Founder />
       <Footer />
       <ChatBot />
+      <WhatsAppButton />
       <OrderForm plan={selectedPlan} onClose={() => setSelectedPlan(null)} />
     </div>
   );
