@@ -7,6 +7,7 @@ import Testimonials from "@/components/Testimonials";
 import OrderForm from "@/components/OrderForm";
 import ChatBot from "@/components/ChatBot";
 import Footer from "@/components/Footer";
+import Founder from "@/components/Founder";
 import { ServicePlan } from "@/components/ServiceCard";
 const Index = () => {
   const [selectedPlan, setSelectedPlan] = useState<ServicePlan | null>(null);
@@ -18,6 +19,7 @@ const Index = () => {
       <Services onBuy={setSelectedPlan} />
       <Portfolio />
       <Testimonials />
+      <Founder />
       <Footer />
       <ChatBot />
       <OrderForm plan={selectedPlan} onClose={() => setSelectedPlan(null)} />
