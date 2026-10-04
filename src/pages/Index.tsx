@@ -9,6 +9,8 @@ import ChatBot from "@/components/ChatBot";
 import Footer from "@/components/Footer";
 import Founder from "@/components/Founder";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import HowItWorks from "@/components/HowItWorks";
+import CustomProject from "@/components/CustomProject";
 import { ServicePlan } from "@/components/ServiceCard";
 const Index = () => {
   const [selectedPlan, setSelectedPlan] = useState<ServicePlan | null>(null);
@@ -18,9 +20,11 @@ const Index = () => {
       <Navbar />
       <Hero />
       <Services onBuy={setSelectedPlan} />
+      <HowItWorks />
       <Portfolio />
       <Testimonials />
       <Founder />
+      <CustomProject />
       <Footer />
       <ChatBot />
       <WhatsAppButton />
