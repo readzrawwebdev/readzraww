@@ -15,6 +15,7 @@ import DashboardWishlist from "./pages/DashboardWishlist";
 import DashboardSettings from "./pages/DashboardSettings";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import PageMotion from "./components/PageMotion";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <PageMotion>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
@@ -38,6 +40,7 @@ const App = () => (
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </PageMotion>
         </BrowserRouter>
       </AuthProvider>
     </TooltipProvider>
