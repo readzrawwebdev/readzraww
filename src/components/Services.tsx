@@ -76,7 +76,7 @@ const Services = ({ onBuy }: Props) => {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="package-perspective grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
           {plans.map((plan, i) => (
             <ServiceCard key={plan.id} plan={plan} index={i} onBuy={onBuy} />
           ))}

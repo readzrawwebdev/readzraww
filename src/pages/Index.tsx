@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import ScrollShowcase from "@/components/ScrollShowcase";
 import Services from "@/components/Services";
 import Portfolio from "@/components/Portfolio";
 import Testimonials from "@/components/Testimonials";
@@ -19,6 +20,7 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <Hero />
+      <ScrollShowcase />
       <Services onBuy={setSelectedPlan} />
       <HowItWorks />
       <Portfolio />

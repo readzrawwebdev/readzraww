@@ -1,5 +1,7 @@
-import { motion } from "framer-motion";
+import { useRef } from "react";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export interface ServicePlan {
   id: string;
@@ -18,13 +20,22 @@ interface Props {
 }
 
 const ServiceCard = ({ plan, index, onBuy }: Props) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const reduced = useReducedMotion();
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "start 0.3"] });
+  const scale = useTransform(scrollYProgress, [0, 1], [0.88, 1]);
+  const rotateX = useTransform(scrollYProgress, [0, 1], [12, 0]);
+  const y = useTransform(scrollYProgress, [0, 1], [65 + index * 15, 0]);
   return (
     <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      ref={ref}
+      style={reduced ? undefined : { scale, rotateX, y }}
+      initial={reduced ? false : { opacity: 0 }}
+      whileInView={{ opacity: 1 }}
+      whileHover={reduced ? undefined : { y: -6 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.15 }}
-      className={`relative rounded-2xl border p-8 flex flex-col shadow-card ${
+      className={`relative rounded-lg border p-8 flex flex-col shadow-card ${
         plan.popular
           ? "border-primary/40 bg-primary/[0.03] shadow-glow"
           : "border-border bg-card"
@@ -66,16 +77,17 @@ const ServiceCard = ({ plan, index, onBuy }: Props) => {
         </div>
       </div>
 
-      <button
+      <Button
+        variant={plan.popular ? "default" : "secondary"}
         onClick={() => onBuy(plan)}
-        className={`w-full rounded-lg py-3 font-semibold transition-transform hover:scale-[1.02] ${
+        className={`h-12 w-full rounded-lg py-3 font-semibold transition-transform hover:scale-[1.02] ${
           plan.popular
             ? "bg-gradient-primary text-primary-foreground shadow-glow"
             : "bg-muted text-foreground hover:bg-muted/80"
         }`}
       >
         Buy Now — ${plan.price}
-      </button>
+      </Button>
     </motion.div>
   );
 };
