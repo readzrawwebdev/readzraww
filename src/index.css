@@ -52,6 +52,8 @@
     --gradient-hero: linear-gradient(180deg, hsl(224, 40%, 8%, 0.6), hsl(224, 40%, 6%, 0.95));
     --shadow-glow: 0 0 40px hsl(250, 85%, 65%, 0.25);
     --shadow-card: 0 4px 24px hsl(224, 50%, 3%, 0.5);
+    --text-glow-primary: 0 0 18px hsl(var(--glow) / 0.48), 0 0 48px hsl(var(--glow) / 0.22);
+    --text-glow-accent: 0 0 14px hsl(var(--glow-accent) / 0.5), 0 0 36px hsl(var(--glow-accent) / 0.2);
   }
 }
 
@@ -90,6 +92,9 @@ section { scroll-margin-top: 90px; }
 }
 
 @layer utilities {
+  .neon-title { text-shadow: var(--text-glow-primary); }
+  .neon-accent { text-shadow: var(--text-glow-accent); }
+  .neon-gradient { filter: drop-shadow(0 0 12px hsl(var(--glow) / 0.4)); }
   .text-gradient {
     @apply bg-clip-text text-transparent;
     background-image: var(--gradient-primary);

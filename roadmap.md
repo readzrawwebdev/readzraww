@@ -1,4 +1,5 @@
 # Current scope
+- [ ] Upgrade showcase video and add restrained neon headline glow
 - [ ] Scroll-linked website video reveal
 - [ ] Layered approaching package cards and stage tabs
 - [ ] Smooth page and section animations with reduced-motion support
