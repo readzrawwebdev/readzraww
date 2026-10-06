@@ -1,9 +1,11 @@
 {
   "version": 1,
-  "asset_id": "6072a2fb-a375-4785-8cfd-e14c71c0e720",
+  "asset_id": "aaa08da1-2565-42de-a472-c459090020d7",
   "project_id": "87bbf8a6-ec9e-4b19-b3e9-8d6cf3973df1",
-  "url": "/__l5e/assets-v1/6072a2fb-a375-4785-8cfd-e14c71c0e720/neon-showcase.mp4",
-  "original_filename": "neon-showcase.mp4",
-  "size": 2346622,
-  "created_at": "2026-10-06T09:57:37Z"
+  "url": "/__l5e/assets-v1/aaa08da1-2565-42de-a472-c459090020d7/neon-showcase.webm",
+  "r2_key": "a/v1/87bbf8a6-ec9e-4b19-b3e9-8d6cf3973df1/aaa08da1-2565-42de-a472-c459090020d7/neon-showcase.webm",
+  "original_filename": "neon-showcase.webm",
+  "size": 1406643,
+  "content_type": "video/webm",
+  "created_at": "2026-10-06T09:59:06Z"
 }
