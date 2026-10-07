@@ -14,56 +14,41 @@ import {
   PieChart, Pie, Cell, LineChart, Line,
 } from "recharts";
 
-interface Order {
-  id: string;
-  customer_name: string;
-  customer_email: string;
-  customer_phone: string;
-  business_name: string | null;
-  project_details: string | null;
-  plan_title: string;
-  plan_price: number;
-  advance_amount: number;
-  receipt_url: string | null;
-  status: string;
-  admin_notes: string | null;
-  created_at: string;
-  updated_at: string;
-}
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import ConfirmAction from "@/components/ConfirmAction";
+import PaymentRecord from "@/components/PaymentRecord";
+import OrderLoadError from "@/components/OrderLoadError";
+import { useOrders } from "@/hooks/useOrders";
+import { statusLabels, statusColors, matchesOrderSearch, invoiceReference, withRequestTimeout, requestErrorMessage } from "@/lib/orders";
+import type { Tables } from "@/integrations/supabase/types";
 
-const statusColors: Record<string, string> = {
-  pending_review: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  approved: "bg-green-50 text-green-700 border-green-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-  in_progress: "bg-blue-50 text-blue-700 border-blue-200",
-  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  cancelled: "bg-red-50 text-red-600 border-red-200",
-};
-
-const statusLabels: Record<string, string> = {
-  pending_review: "Pending Review",
-  approved: "Approved",
-  rejected: "Rejected",
-  in_progress: "In Progress",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
-
-const PIE_COLORS = ["#f59e0b", "#22c55e", "#ef4444", "#3b82f6", "#06b6d4", "#a855f7"];
+type Order = Tables<"orders">;
+const PIE_COLORS = ["hsl(var(--primary))", "hsl(var(--accent))", "hsl(var(--destructive))", "hsl(var(--muted-foreground))"];
 
 const ReceiptImage = ({ filePath }: { filePath: string }) => {
   const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    if (filePath.startsWith("http")) {
-      setUrl(filePath);
-    } else {
-      supabase.storage.from("receipts").createSignedUrl(filePath, 3600).then(({ data }) => {
-        setUrl(data?.signedUrl ?? null);
-      });
-    }
-  }, [filePath]);
-  if (!url) return <p className="text-muted-foreground text-sm">Loading receipt...</p>;
-  return <img src={url} alt="Receipt" className="rounded-lg border border-border max-h-64 object-contain" />;
+    let alive = true;
+    setUrl(null); setFailed(false);
+    const load = async () => {
+      try {
+        // Legacy public URLs are converted back to private storage paths.
+        const path = filePath.startsWith("http") ? decodeURIComponent(filePath.split("/receipts/")[1]?.split("?")[0] || "") : filePath;
+        if (!path) throw new Error("Invalid receipt path");
+        const { data, error } = await withRequestTimeout(supabase.storage.from("receipts").createSignedUrl(path, 3600));
+        if (error || !data?.signedUrl) throw error || new Error("Receipt unavailable");
+        if (alive) setUrl(data.signedUrl);
+      } catch { if (alive) setFailed(true); }
+    };
+    load();
+    return () => { alive = false; };
+  }, [filePath, attempt]);
+  if (failed) return <div role="alert"><p className="text-sm text-destructive mb-2">Receipt couldn't be loaded.</p><Button variant="outline" size="sm" onClick={() => setAttempt(value => value + 1)}>Retry receipt</Button></div>;
+  if (!url) return <p role="status" className="text-muted-foreground text-sm">Loading receipt…</p>;
+  return <img src={url} alt="Payment receipt" onError={() => setFailed(true)} className="rounded-lg border border-border max-h-64 object-contain" />;
 };
 
 type Tab = "overview" | "orders";
@@ -72,8 +57,8 @@ const AdminDashboard = () => {
   const { user, isAdmin, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [fetching, setFetching] = useState(true);
+  const { data: orders = [], isLoading: fetching, isFetching, error: loadError, refetch } = useOrders(true);
+  const [pendingAction, setPendingAction] = useState<{ id: string; status: string } | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
   const [updating, setUpdating] = useState(false);
@@ -87,51 +72,37 @@ const AdminDashboard = () => {
     if (!loading && (!user || !isAdmin)) navigate("/admin/login");
   }, [user, isAdmin, loading, navigate]);
 
-  const fetchOrders = async () => {
-    setFetching(true);
-    const { data, error } = await supabase.from("orders").select("*").order("created_at", { ascending: false });
-    if (error) {
-      toast({ title: "Unable to load orders", variant: "destructive" });
-    } else {
-      setOrders((data as Order[]) ?? []);
+  const fetchOrders = () => refetch();
+
+  const performAction = async () => {
+    if (!pendingAction || updating) return false;
+    const { id, status } = pendingAction;
+    const current = orders.find(order => order.id === id);
+    if (!current) return false;
+    if (status === "approved" && (!current.receipt_url || !current.trx_id)) {
+      toast({ title: "Payment details incomplete", description: "A receipt and TRX ID are required before approving payment.", variant: "destructive" });
+      return false;
     }
-    setFetching(false);
-  };
-
-  useEffect(() => { if (isAdmin) fetchOrders(); }, [isAdmin]);
-
-  useEffect(() => {
-    if (!isAdmin) return;
-    const channel = supabase
-      .channel("orders-realtime-admin")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => fetchOrders())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [isAdmin]);
-
-  const updateOrderStatus = async (orderId: string, status: string) => {
     setUpdating(true);
-    const { error } = await supabase.from("orders").update({ status, admin_notes: adminNotes || null }).eq("id", orderId);
-    if (error) {
-      toast({ title: "Update failed", variant: "destructive" });
-    } else {
-      toast({ title: `Order ${statusLabels[status] || status}` });
-      setSelectedOrder(null);
-      setAdminNotes("");
-      fetchOrders();
-    }
-    setUpdating(false);
-  };
-
-  const deleteOrder = async (orderId: string) => {
-    const { error } = await supabase.from("orders").delete().eq("id", orderId);
-    if (error) {
-      toast({ title: "Delete failed", variant: "destructive" });
-    } else {
-      toast({ title: "Order deleted" });
-      setSelectedOrder(null);
-      fetchOrders();
-    }
+    try {
+      const result = status === "delete"
+        ? supabase.from("orders").delete().eq("id", id).eq("updated_at", current.updated_at).select("id").maybeSingle()
+        : supabase.from("orders").update({ status, admin_notes: adminNotes.trim() || null }).eq("id", id).eq("updated_at", current.updated_at).select("id").maybeSingle();
+      const { data, error } = await withRequestTimeout(result);
+      if (error) throw error;
+      if (!data) {
+        toast({ title: "Order changed", description: "Another update occurred. Refresh and reopen the order before saving.", variant: "destructive" });
+        refetch();
+        return false;
+      }
+      toast({ title: status === "delete" ? "Order deleted" : status === current.status ? "Notes saved" : `Order ${statusLabels[status] || status}` });
+      setSelectedOrder(null); setAdminNotes("");
+      await refetch();
+      return true;
+    } catch (error) {
+      toast({ title: "Unable to save changes", description: requestErrorMessage(error), variant: "destructive" });
+      return false;
+    } finally { setUpdating(false); }
   };
 
   const stats = useMemo(() => ({
@@ -140,7 +111,7 @@ const AdminDashboard = () => {
     active: orders.filter((o) => ["approved", "in_progress"].includes(o.status)).length,
     completed: orders.filter((o) => o.status === "completed").length,
     revenue: orders.filter((o) => o.status !== "cancelled" && o.status !== "rejected").reduce((a, o) => a + o.plan_price, 0),
-    collected: orders.filter((o) => o.status !== "cancelled" && o.status !== "rejected").reduce((a, o) => a + o.advance_amount, 0),
+    collected: orders.filter((o) => ["approved", "in_progress", "completed"].includes(o.status) && o.receipt_url && o.trx_id).reduce((a, o) => a + o.advance_amount, 0),
     uniqueCustomers: new Set(orders.map((o) => o.customer_email)).size,
   }), [orders]);
 
@@ -170,7 +141,7 @@ const AdminDashboard = () => {
       if (statusFilter !== "all" && o.status !== statusFilter) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
-        return o.customer_name.toLowerCase().includes(q) || o.customer_email.toLowerCase().includes(q) || o.plan_title.toLowerCase().includes(q);
+        return matchesOrderSearch(o, q);
       }
       return true;
     });
@@ -186,9 +157,9 @@ const AdminDashboard = () => {
     { label: "Orders", icon: Package, tab: "orders" as Tab },
   ];
 
-  const chartTooltipStyle = { background: "#fff", border: "1px solid hsl(220,13%,91%)", borderRadius: 8, color: "hsl(222,47%,11%)" };
-  const axisTick = { fill: "hsl(220,9%,46%)", fontSize: 12 };
-  const gridStroke = "hsl(220,13%,91%)";
+  const chartTooltipStyle = { background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" };
+  const axisTick = { fill: "hsl(var(--muted-foreground))", fontSize: 12 };
+  const gridStroke = "hsl(var(--border))";
 
   const Sidebar = () => (
     <aside className={`sticky top-0 h-screen border-r border-border bg-card flex flex-col transition-all duration-300 ${collapsed ? "w-16" : "w-64"}`}>
@@ -242,20 +213,21 @@ const AdminDashboard = () => {
           <h1 className="font-heading text-xl font-bold text-foreground">
             {tab === "overview" ? "Analytics Overview" : "Order Management"}
           </h1>
-          <button onClick={fetchOrders} className="ml-auto flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" disabled={isFetching} onClick={() => fetchOrders()} className="ml-auto">
             <RefreshCw size={14} /> Refresh
           </button>
         </header>
 
         <main className="flex-1 p-4 lg:p-8">
+          {loadError && <OrderLoadError error={loadError} retry={() => refetch()} busy={isFetching} />}
           {tab === "overview" && (
             <>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
                 {[
                   { label: "Total Orders", value: stats.total, icon: Package, color: "text-primary" },
-                  { label: "Unique Customers", value: stats.uniqueCustomers, icon: Users, color: "text-blue-600" },
-                  { label: "Total Revenue", value: `$${stats.revenue}`, icon: DollarSign, color: "text-green-600" },
-                  { label: "Advance Collected", value: `$${stats.collected}`, icon: TrendingUp, color: "text-accent" },
+                  { label: "Unique Customers", value: stats.uniqueCustomers, icon: Users, color: "text-primary" },
+                  { label: "Order Value", value: `$${stats.revenue}`, icon: DollarSign, color: "text-accent" },
+                  { label: "Verified Advances", value: `$${stats.collected}`, icon: TrendingUp, color: "text-accent" },
                 ].map((s) => (
                   <div key={s.label} className="rounded-xl border border-border bg-card p-4 shadow-card">
                     <div className="flex items-center justify-between mb-2"><s.icon size={18} className={s.color} /></div>
@@ -266,23 +238,23 @@ const AdminDashboard = () => {
               </div>
 
               <div className="grid grid-cols-3 gap-4 mb-8">
-                <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4 text-center">
-                  <p className="text-2xl font-bold text-yellow-700">{stats.pending}</p>
+                <div className="rounded-xl border border-border bg-muted p-4 text-center">
+                  <p className="text-2xl font-bold text-foreground">{stats.pending}</p>
                   <p className="text-xs text-muted-foreground">Pending</p>
                 </div>
-                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-center">
-                  <p className="text-2xl font-bold text-blue-700">{stats.active}</p>
+                <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 text-center">
+                  <p className="text-2xl font-bold text-primary">{stats.active}</p>
                   <p className="text-xs text-muted-foreground">Active</p>
                 </div>
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-                  <p className="text-2xl font-bold text-emerald-700">{stats.completed}</p>
+                <div className="rounded-xl border border-accent/30 bg-accent/10 p-4 text-center">
+                  <p className="text-2xl font-bold text-accent">{stats.completed}</p>
                   <p className="text-xs text-muted-foreground">Completed</p>
                 </div>
               </div>
 
               <div className="grid lg:grid-cols-2 gap-6 mb-8">
                 <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-                  <h3 className="font-heading font-bold text-foreground mb-4">Revenue Over Time</h3>
+                  <h3 className="font-heading font-bold text-foreground mb-4">Order Value Over Time</h3>
                   {monthlyRevenue.length > 0 ? (
                     <ResponsiveContainer width="100%" height={250}>
                       <LineChart data={monthlyRevenue}>
@@ -290,7 +262,7 @@ const AdminDashboard = () => {
                         <XAxis dataKey="month" tick={axisTick} />
                         <YAxis tick={axisTick} />
                         <Tooltip contentStyle={chartTooltipStyle} />
-                        <Line type="monotone" dataKey="revenue" stroke="hsl(250,85%,60%)" strokeWidth={2} dot={{ fill: "hsl(250,85%,60%)" }} />
+                        <Line type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))" }} />
                       </LineChart>
                     </ResponsiveContainer>
                   ) : (
@@ -325,7 +297,7 @@ const AdminDashboard = () => {
                         <XAxis dataKey="name" tick={axisTick} />
                         <YAxis tick={axisTick} allowDecimals={false} />
                         <Tooltip contentStyle={chartTooltipStyle} />
-                        <Bar dataKey="value" fill="hsl(170,75%,42%)" radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="value" fill="hsl(var(--accent))" radius={[6, 6, 0, 0]} />
                       </BarChart>
                     </ResponsiveContainer>
                   ) : (
@@ -342,7 +314,7 @@ const AdminDashboard = () => {
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name, email, or plan..."
+                  aria-label="Search orders" placeholder="Search name, email, invoice, TRX ID or plan…"
                   className="flex-1 rounded-lg border border-input bg-background px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 />
                 <select
@@ -381,7 +353,7 @@ const AdminDashboard = () => {
                             <p className="font-medium text-foreground">{order.customer_name}</p>
                             <p className="text-xs text-muted-foreground">{order.customer_email}</p>
                           </td>
-                          <td className="px-4 py-3 text-foreground">{order.plan_title}</td>
+                          <td className="px-4 py-3 text-foreground"><p className="mb-2">{order.plan_title}</p><PaymentRecord id={order.id} trxId={order.trx_id} receiptPath={order.receipt_url} /></td>
                           <td className="px-4 py-3 text-foreground">${order.plan_price} / ${order.advance_amount}</td>
                           <td className="px-4 py-3">
                             <span className={`inline-block rounded-full border px-3 py-0.5 text-xs font-medium ${statusColors[order.status] || "bg-muted"}`}>
@@ -390,7 +362,7 @@ const AdminDashboard = () => {
                           </td>
                           <td className="px-4 py-3 text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</td>
                           <td className="px-4 py-3">
-                            <button onClick={() => { setSelectedOrder(order); setAdminNotes(order.admin_notes || ""); }} className="flex items-center gap-1 text-primary hover:text-primary/80 text-xs font-medium">
+                            <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(order); setAdminNotes(order.admin_notes || ""); }} aria-label={`View order for ${order.customer_name}`}>
                               <Eye size={14} /> View
                             </button>
                           </td>
@@ -407,12 +379,14 @@ const AdminDashboard = () => {
       </div>
 
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4" onClick={() => setSelectedOrder(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl rounded-2xl border border-border bg-card p-8 shadow-lg max-h-[90vh] overflow-y-auto">
-            <h3 className="font-heading text-xl font-bold text-foreground mb-4">Order Details</h3>
+        <Dialog open onOpenChange={open => { if (!open && !updating && !pendingAction) setSelectedOrder(null); }}>
+          <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-xl rounded-lg bg-card max-h-[90vh] overflow-y-auto">
+            <DialogTitle>Order Details</DialogTitle>
+            <DialogDescription>{invoiceReference(selectedOrder.id)} · {statusLabels[selectedOrder.status]}</DialogDescription>
+            <PaymentRecord id={selectedOrder.id} trxId={selectedOrder.trx_id} receiptPath={selectedOrder.receipt_url} />
 
             <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 break-words">
                 <div><p className="text-muted-foreground">Name</p><p className="text-foreground font-medium">{selectedOrder.customer_name}</p></div>
                 <div><p className="text-muted-foreground">Email</p><p className="text-foreground font-medium">{selectedOrder.customer_email}</p></div>
                 <div><p className="text-muted-foreground">Phone</p><p className="text-foreground font-medium">{selectedOrder.customer_phone}</p></div>
@@ -433,7 +407,7 @@ const AdminDashboard = () => {
               )}
 
               <div>
-                <label className="text-muted-foreground">Admin Notes</label>
+                <label htmlFor="admin-order-notes" className="text-muted-foreground">Notes visible to customer</label>
                 <textarea
                   value={adminNotes}
                   onChange={(e) => setAdminNotes(e.target.value)}
@@ -445,28 +419,28 @@ const AdminDashboard = () => {
             </div>
 
             <div className="flex flex-wrap gap-2 mt-6">
-              <button disabled={updating} onClick={() => updateOrderStatus(selectedOrder.id, "approved")} className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50">
-                <CheckCircle2 size={16} /> Approve
-              </button>
-              <button disabled={updating} onClick={() => updateOrderStatus(selectedOrder.id, "in_progress")} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50">
-                <Clock size={16} /> In Progress
-              </button>
-              <button disabled={updating} onClick={() => updateOrderStatus(selectedOrder.id, "completed")} className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-foreground hover:bg-accent/80 disabled:opacity-50">
-                <CheckCircle2 size={16} /> Complete
-              </button>
-              <button disabled={updating} onClick={() => updateOrderStatus(selectedOrder.id, "rejected")} className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground hover:bg-destructive/80 disabled:opacity-50">
-                <XCircle size={16} /> Reject
-              </button>
-              <button onClick={() => { if (confirm("Delete this order permanently?")) deleteOrder(selectedOrder.id); }} className="flex items-center gap-2 rounded-lg border border-destructive/30 px-4 py-2 text-sm font-semibold text-destructive hover:bg-destructive/10">
-                <Trash2 size={16} /> Delete
-              </button>
-              <button onClick={() => setSelectedOrder(null)} className="ml-auto rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted">
-                Close
-              </button>
+              <Button disabled={updating} onClick={() => setPendingAction({ id: selectedOrder.id, status: selectedOrder.status })}>Save notes</Button>
+              {selectedOrder.status === "pending_review" && <>
+                <Button variant="secondary" disabled={updating || !selectedOrder.receipt_url || !selectedOrder.trx_id} title={!selectedOrder.receipt_url || !selectedOrder.trx_id ? "Receipt and TRX ID required" : "Verify payment"} onClick={() => setPendingAction({ id: selectedOrder.id, status: "approved" })}><CheckCircle2 /> Approve</Button>
+                <Button variant="destructive" disabled={updating} onClick={() => setPendingAction({ id: selectedOrder.id, status: "rejected" })}><XCircle /> Reject</Button>
+              </>}
+              {selectedOrder.status === "approved" && <Button disabled={updating} onClick={() => setPendingAction({ id: selectedOrder.id, status: "in_progress" })}><Clock /> Start work</Button>}
+              {selectedOrder.status === "in_progress" && <Button disabled={updating} onClick={() => setPendingAction({ id: selectedOrder.id, status: "completed" })}><CheckCircle2 /> Complete</Button>}
+              <Button variant="outline" className="text-destructive" disabled={updating} onClick={() => setPendingAction({ id: selectedOrder.id, status: "delete" })}><Trash2 /> Delete</Button>
+              <Button variant="outline" disabled={updating} onClick={() => {
+                if (adminNotes !== (selectedOrder.admin_notes || "")) setPendingAction({ id: selectedOrder.id, status: "discard" });
+                else setSelectedOrder(null);
+              }}>Close</Button>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
+      <ConfirmAction open={Boolean(pendingAction)} onOpenChange={open => { if (!open) setPendingAction(null); }}
+        title={pendingAction?.status === "delete" ? "Delete this order permanently?" : pendingAction?.status === "discard" ? "Discard unsaved notes?" : "Confirm order update?"}
+        description={pendingAction?.status === "delete" ? "The customer will lose access to this order record. This cannot be undone and does not refund a payment." : pendingAction?.status === "discard" ? "Your unsaved notes will be lost." : pendingAction?.status === "approved" ? "Confirm you've checked the receipt, TRX ID and amount against your EasyPaisa records. This marks payment as approved." : "This change and your notes will be visible to the customer."}
+        confirmLabel={pendingAction?.status === "delete" ? "Delete permanently" : pendingAction?.status === "discard" ? "Discard notes" : "Confirm update"}
+        destructive={["delete", "rejected", "discard"].includes(pendingAction?.status || "")}
+        onConfirm={async () => { if (pendingAction?.status === "discard") { setSelectedOrder(null); return true; } return performAction(); }} />
     </div>
   );
 };
