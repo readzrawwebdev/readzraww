@@ -223,9 +223,9 @@ const OrderForm = ({ plan, onClose }: Props) => {
                 <label className="text-sm font-medium text-foreground">Project Details</label>
                 <textarea maxLength={2000} value={formData.details} onChange={(e) => setFormData({ ...formData, details: e.target.value })} rows={3} className={`${inputClass} resize-none`} placeholder="Describe what you need..." />
               </div>
-              <button type="submit" disabled={submitting} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
+              <Button type="submit" disabled={submitting} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
                 {submitting ? "Submitting..." : "Continue to Payment"}
-              </button>
+              </Button>
             </form>
           )}
 
@@ -241,12 +241,12 @@ const OrderForm = ({ plan, onClose }: Props) => {
               <p className="text-sm text-muted-foreground text-center">
                 After sending the payment, take a screenshot of the receipt and continue to upload it.
               </p>
-              <button onClick={() => setStep("upload")} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
+              <Button onClick={() => { setFormError(null); setStep("upload"); }} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
                 I've Sent Payment — Upload Receipt
-              </button>
-              <button onClick={() => setStep("form")} className="w-full rounded-lg border border-border py-3 font-semibold text-foreground transition-colors hover:bg-muted">
+              </Button>
+              <Button onClick={() => { setFormError(null); setStep("form"); }} className="w-full rounded-lg border border-border py-3 font-semibold text-foreground transition-colors hover:bg-muted">
                 Go Back
-              </button>
+              </Button>
             </div>
           )}
 
@@ -270,7 +270,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
                   <div className="flex flex-col items-center gap-2">
                     <CheckCircle2 className="text-accent" size={32} />
                     <p className="text-sm text-foreground font-medium">{receiptFile.name}</p>
-                    <button onClick={() => setReceiptFile(null)} className="text-xs text-muted-foreground hover:text-foreground">Remove</button>
+                    <Button onClick={() => setReceiptFile(null)} className="text-xs text-muted-foreground hover:text-foreground">Remove</Button>
                   </div>
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center gap-3">
@@ -280,12 +280,12 @@ const OrderForm = ({ plan, onClose }: Props) => {
                   </label>
                 )}
               </div>
-              <button onClick={handleUpload} disabled={uploading} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
+              <Button onClick={handleUpload} disabled={uploading} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
                 {uploading ? <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" /> Uploading...</span> : "Submit Receipt"}
-              </button>
-              <button onClick={() => setStep("payment")} className="w-full rounded-lg border border-border py-3 font-semibold text-foreground transition-colors hover:bg-muted">
+              </Button>
+              <Button onClick={() => { setFormError(null); setStep("payment"); }} className="w-full rounded-lg border border-border py-3 font-semibold text-foreground transition-colors hover:bg-muted">
                 Go Back
-              </button>
+              </Button>
             </div>
           )}
 
@@ -339,9 +339,9 @@ const OrderForm = ({ plan, onClose }: Props) => {
                 Questions? Contact us at{" "}
                 <a href="mailto:readzraw@gmail.com" className="text-primary font-medium">readzraw@gmail.com</a>
               </div>
-              <button onClick={onClose} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
+              <Button onClick={onClose} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
                 Done
-              </button>
+              </Button>
             </div>
           )}
         </motion.div>
