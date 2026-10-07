@@ -7,6 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import ConfirmAction from "@/components/ConfirmAction";
+import { withRequestTimeout, requestErrorMessage } from "@/lib/orders";
 
 const orderSchema = z.object({
   name: z.string().trim().min(2, "Name must be at least 2 characters").max(100, "Name too long"),
@@ -26,12 +29,7 @@ interface Props {
 
 type Step = "form" | "payment" | "upload" | "success";
 
-const withTimeout = async <T,>(promiseLike: PromiseLike<T>, ms = 12000): Promise<T> => {
-  return await Promise.race([
-    Promise.resolve(promiseLike),
-    new Promise<T>((_, reject) => setTimeout(() => reject(new Error("Request timeout")), ms)),
-  ]);
-};
+const withTimeout = withRequestTimeout;
 
 const OrderForm = ({ plan, onClose }: Props) => {
   const { toast } = useToast();
@@ -44,6 +42,14 @@ const OrderForm = ({ plan, onClose }: Props) => {
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [uploadedReceipt, setUploadedReceipt] = useState<{ file: File; path: string } | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const requestClose = () => {
+    if (uploading || submitting) return;
+    if (step !== "success" && (orderId || Object.values(formData).some(Boolean) || receiptFile || trxId)) setConfirmClose(true);
+    else onClose();
+  };
 
   if (!plan) return null;
 
@@ -52,8 +58,10 @@ const OrderForm = ({ plan, onClose }: Props) => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+    setFormError(null);
     const validation = orderSchema.safeParse(formData);
     if (!validation.success) {
+      setFormError(validation.error.issues[0]?.message ?? "Please check your input.");
       toast({ title: "Validation error", description: validation.error.issues[0]?.message ?? "Please check your input.", variant: "destructive" });
       return;
     }
@@ -63,11 +71,10 @@ const OrderForm = ({ plan, onClose }: Props) => {
       navigate("/login");
       return;
     }
-    const newOrderId = crypto.randomUUID();
+    const newOrderId = orderId || crypto.randomUUID();
     setSubmitting(true);
     try {
-      const { error } = await withTimeout(
-        supabase.from("orders").insert({
+      const values = {
           id: newOrderId,
           customer_name: validation.data.name,
           customer_email: validation.data.email,
@@ -78,15 +85,20 @@ const OrderForm = ({ plan, onClose }: Props) => {
           plan_price: plan.price,
           advance_amount: Number(advancePayment),
           user_id: user.id,
-        })
-      );
+        };
+      const { data, error } = await withTimeout(orderId
+        ? supabase.from("orders").update(values).eq("id", orderId).eq("user_id", user.id).eq("status", "pending_review").select("id").maybeSingle()
+        : supabase.from("orders").insert(values).select("id").single());
       if (error) {
+        setFormError(requestErrorMessage(error));
         toast({ title: "Unable to submit order", description: "Please check your information and try again.", variant: "destructive" });
         return;
       }
+      if (!data) { setFormError("This order has changed. Check My Orders before continuing."); return; }
       setOrderId(newOrderId);
       setStep("payment");
-    } catch {
+    } catch (error) {
+      setFormError(requestErrorMessage(error));
       toast({ title: "Unable to submit order", description: "Please try again in a moment.", variant: "destructive" });
     } finally {
       setSubmitting(false);
@@ -94,6 +106,8 @@ const OrderForm = ({ plan, onClose }: Props) => {
   };
 
   const handleUpload = async () => {
+    if (uploading) return;
+    setFormError(null);
     if (!user) {
       toast({ title: "Sign in required", description: "Please sign in before uploading a receipt.", variant: "destructive" });
       onClose();
@@ -106,33 +120,39 @@ const OrderForm = ({ plan, onClose }: Props) => {
     }
     const cleanTrx = trxId.trim();
     if (cleanTrx.length < 6 || cleanTrx.length > 40) {
+      setFormError("Enter the transaction ID from your EasyPaisa payment confirmation (6–40 characters).");
       toast({ title: "Invalid transaction ID", description: "Please enter the EasyPaisa transaction (TRX) ID from your payment SMS.", variant: "destructive" });
       return;
     }
     if (receiptFile.size > MAX_FILE_SIZE) {
+      setFormError("Receipt must be 5MB or smaller.");
       toast({ title: "File too large", description: "Maximum file size is 5MB.", variant: "destructive" });
       return;
     }
     if (!ALLOWED_FILE_TYPES.includes(receiptFile.type)) {
+      setFormError("Choose a JPEG, PNG or WebP receipt image.");
       toast({ title: "Invalid file type", description: "Only JPEG, PNG, and WebP images are allowed.", variant: "destructive" });
       return;
     }
     setUploading(true);
     try {
       const ext = receiptFile.type.split("/")[1] || "jpg";
-      const filePath = `${user.id}/${orderId}.${ext}`;
-      const { error: uploadError } = await withTimeout(supabase.storage.from("receipts").upload(filePath, receiptFile, { upsert: false }));
-      if (uploadError) {
-        toast({ title: "Upload failed", description: "Unable to upload receipt. Please try a different file.", variant: "destructive" });
-        return;
+      const filePath = uploadedReceipt?.file === receiptFile ? uploadedReceipt.path : `${user.id}/${orderId}-${crypto.randomUUID()}.${ext}`;
+      if (uploadedReceipt?.file !== receiptFile) {
+        const { error: uploadError } = await withTimeout(supabase.storage.from("receipts").upload(filePath, receiptFile, { upsert: false }));
+        if (uploadError) throw uploadError;
+        setUploadedReceipt({ file: receiptFile, path: filePath });
       }
-      const { error: updateError } = await withTimeout(supabase.from("orders").update({ receipt_url: filePath, trx_id: cleanTrx } as never).eq("id", orderId));
+      const { data, error: updateError } = await withTimeout(supabase.from("orders").update({ receipt_url: filePath, trx_id: cleanTrx }).eq("id", orderId).eq("user_id", user.id).eq("status", "pending_review").select("id").maybeSingle());
       if (updateError) {
+        setFormError("Receipt uploaded, but the transaction wasn't saved. Retry Submit Receipt; the same uploaded file will be reused.");
         toast({ title: "Upload saved but order update failed", description: "Please contact support.", variant: "destructive" });
         return;
       }
+      if (!data) { setFormError("Order status changed. Check My Orders or contact support before uploading again."); return; }
       setStep("success");
-    } catch {
+    } catch (error) {
+      setFormError(requestErrorMessage(error));
       toast({ title: "Upload failed", description: "Please try again in a moment.", variant: "destructive" });
     } finally {
       setUploading(false);
@@ -148,7 +168,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-sm p-4"
-        onClick={onClose}
+        onClick={requestClose}
       >
         <motion.div
           initial={{ scale: 0.95, opacity: 0 }}
@@ -157,13 +177,13 @@ const OrderForm = ({ plan, onClose }: Props) => {
           onClick={(e) => e.stopPropagation()}
           className="relative w-full max-w-lg rounded-2xl border border-border bg-card p-8 shadow-lg max-h-[90vh] overflow-y-auto"
         >
-          <button onClick={onClose} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+          <Button variant="ghost" size="icon" aria-label="Close order form" disabled={uploading || submitting} onClick={requestClose} className="absolute top-3 right-3 text-muted-foreground">
             <X size={20} />
-          </button>
+          </Button>
 
           <div className="mb-6">
             <h2 className="font-heading text-2xl font-bold text-foreground">
-              {step === "success" ? "Order Confirmed!" : `Order: ${plan.title}`}
+              {step === "success" ? "Payment Submitted" : `Order: ${plan.title}`}
             </h2>
             {step !== "success" && (
               <p className="text-sm text-muted-foreground mt-1">
@@ -180,6 +200,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
             </div>
           )}
 
+          {formError && <p role="alert" className="mb-4 rounded-md border border-destructive/30 p-3 text-sm text-destructive">{formError}</p>}
           {step === "form" && (
             <form onSubmit={handleFormSubmit} className="space-y-4">
               <div>
@@ -202,9 +223,9 @@ const OrderForm = ({ plan, onClose }: Props) => {
                 <label className="text-sm font-medium text-foreground">Project Details</label>
                 <textarea maxLength={2000} value={formData.details} onChange={(e) => setFormData({ ...formData, details: e.target.value })} rows={3} className={`${inputClass} resize-none`} placeholder="Describe what you need..." />
               </div>
-              <button type="submit" disabled={submitting} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
+              <Button type="submit" disabled={submitting} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
                 {submitting ? "Submitting..." : "Continue to Payment"}
-              </button>
+              </Button>
             </form>
           )}
 
@@ -220,12 +241,12 @@ const OrderForm = ({ plan, onClose }: Props) => {
               <p className="text-sm text-muted-foreground text-center">
                 After sending the payment, take a screenshot of the receipt and continue to upload it.
               </p>
-              <button onClick={() => setStep("upload")} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
+              <Button onClick={() => { setFormError(null); setStep("upload"); }} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
                 I've Sent Payment — Upload Receipt
-              </button>
-              <button onClick={() => setStep("form")} className="w-full rounded-lg border border-border py-3 font-semibold text-foreground transition-colors hover:bg-muted">
+              </Button>
+              <Button onClick={() => { setFormError(null); setStep("form"); }} className="w-full rounded-lg border border-border py-3 font-semibold text-foreground transition-colors hover:bg-muted">
                 Go Back
-              </button>
+              </Button>
             </div>
           )}
 
@@ -249,7 +270,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
                   <div className="flex flex-col items-center gap-2">
                     <CheckCircle2 className="text-accent" size={32} />
                     <p className="text-sm text-foreground font-medium">{receiptFile.name}</p>
-                    <button onClick={() => setReceiptFile(null)} className="text-xs text-muted-foreground hover:text-foreground">Remove</button>
+                    <Button onClick={() => setReceiptFile(null)} className="text-xs text-muted-foreground hover:text-foreground">Remove</Button>
                   </div>
                 ) : (
                   <label className="cursor-pointer flex flex-col items-center gap-3">
@@ -259,12 +280,12 @@ const OrderForm = ({ plan, onClose }: Props) => {
                   </label>
                 )}
               </div>
-              <button onClick={handleUpload} disabled={uploading} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
+              <Button onClick={handleUpload} disabled={uploading} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02] disabled:opacity-60">
                 {uploading ? <span className="flex items-center justify-center gap-2"><Loader2 size={18} className="animate-spin" /> Uploading...</span> : "Submit Receipt"}
-              </button>
-              <button onClick={() => setStep("payment")} className="w-full rounded-lg border border-border py-3 font-semibold text-foreground transition-colors hover:bg-muted">
+              </Button>
+              <Button onClick={() => { setFormError(null); setStep("payment"); }} className="w-full rounded-lg border border-border py-3 font-semibold text-foreground transition-colors hover:bg-muted">
                 Go Back
-              </button>
+              </Button>
             </div>
           )}
 
@@ -276,7 +297,7 @@ const OrderForm = ({ plan, onClose }: Props) => {
                 </div>
                 <div>
                   <h3 className="font-heading text-xl font-bold text-foreground">Payment Submitted!</h3>
-                  <p className="text-xs text-muted-foreground">We'll verify your receipt and start right away.</p>
+                   <p className="text-xs text-muted-foreground">Receipt and TRX ID saved. Payment is awaiting manual review.</p>
                 </div>
               </div>
 
@@ -318,12 +339,13 @@ const OrderForm = ({ plan, onClose }: Props) => {
                 Questions? Contact us at{" "}
                 <a href="mailto:readzraw@gmail.com" className="text-primary font-medium">readzraw@gmail.com</a>
               </div>
-              <button onClick={onClose} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
+              <Button onClick={onClose} className="w-full rounded-lg bg-gradient-primary py-3 font-semibold text-primary-foreground transition-transform hover:scale-[1.02]">
                 Done
-              </button>
+              </Button>
             </div>
           )}
         </motion.div>
+        <ConfirmAction open={confirmClose} onOpenChange={setConfirmClose} title="Leave this order?" description={orderId ? "Your order is saved in My Orders. Unsaved payment details and selected files will be lost." : "Your entered details will be lost. No order has been placed yet."} confirmLabel="Leave order" destructive onConfirm={async () => { onClose(); return true; }} />
       </motion.div>
     </AnimatePresence>
   );
