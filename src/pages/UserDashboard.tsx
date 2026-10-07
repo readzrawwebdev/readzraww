@@ -1,64 +1,25 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import {
   Package, Clock, CheckCircle2, Loader2, User, Mail, Calendar,
   TrendingUp, ArrowRight,
 } from "lucide-react";
 
-interface Order {
-  id: string;
-  plan_title: string;
-  plan_price: number;
-  advance_amount: number;
-  status: string;
-  created_at: string;
-  admin_notes: string | null;
-}
-
-const statusColors: Record<string, string> = {
-  pending_review: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  approved: "bg-green-50 text-green-700 border-green-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-  in_progress: "bg-blue-50 text-blue-700 border-blue-200",
-  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  cancelled: "bg-red-50 text-red-600 border-red-200",
-};
-
-const statusLabels: Record<string, string> = {
-  pending_review: "Pending Review",
-  approved: "Approved",
-  rejected: "Rejected",
-  in_progress: "In Progress",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
+import { useOrders } from "@/hooks/useOrders";
+import { statusColors, statusLabels } from "@/lib/orders";
+import PaymentRecord from "@/components/PaymentRecord";
+import OrderLoadError from "@/components/OrderLoadError";
 
 const UserDashboard = () => {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [fetching, setFetching] = useState(true);
-
-  useEffect(() => {
-    if (!user) return;
-    const fetchOrders = async () => {
-      setFetching(true);
-      const { data } = await supabase
-        .from("orders")
-        .select("id, plan_title, plan_price, advance_amount, status, created_at, admin_notes")
-        .order("created_at", { ascending: false });
-      if (data) setOrders(data as Order[]);
-      setFetching(false);
-    };
-    fetchOrders();
-  }, [user]);
+  const { data: orders = [], isLoading: fetching, isFetching, error, refetch } = useOrders();
 
   const stats = useMemo(() => ({
     total: orders.length,
     active: orders.filter((o) => ["pending_review", "approved", "in_progress"].includes(o.status)).length,
     completed: orders.filter((o) => o.status === "completed").length,
-    totalSpent: orders.reduce((acc, o) => acc + o.plan_price, 0),
+    totalSpent: orders.filter(o => !["cancelled", "rejected"].includes(o.status)).reduce((acc, o) => acc + o.plan_price, 0),
   }), [orders]);
 
   const recentOrders = orders.slice(0, 5);
@@ -75,13 +36,14 @@ const UserDashboard = () => {
         </p>
       </div>
 
+      {error && <OrderLoadError error={error} retry={() => refetch()} busy={isFetching} />}
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { label: "Total Orders", value: stats.total, icon: Package, color: "text-primary" },
           { label: "Active Projects", value: stats.active, icon: Clock, color: "text-blue-600" },
           { label: "Completed", value: stats.completed, icon: CheckCircle2, color: "text-accent" },
-          { label: "Total Invested", value: `$${stats.totalSpent}`, icon: TrendingUp, color: "text-green-600" },
+          { label: "Order Value", value: `$${stats.totalSpent}`, icon: TrendingUp, color: "text-green-600" },
         ].map((s) => (
           <div key={s.label} className="rounded-xl border border-border bg-card p-4 shadow-card">
             <div className="flex items-center justify-between mb-2">
@@ -138,7 +100,7 @@ const UserDashboard = () => {
             <div className="flex justify-center py-12">
               <Loader2 className="animate-spin text-primary" size={24} />
             </div>
-          ) : recentOrders.length === 0 ? (
+          ) : error && recentOrders.length === 0 ? null : recentOrders.length === 0 ? (
             <div className="text-center py-12">
               <Package size={36} className="mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground mb-3">No orders yet</p>
@@ -147,12 +109,13 @@ const UserDashboard = () => {
           ) : (
             <div className="space-y-3">
               {recentOrders.map((order) => (
-                <div key={order.id} className="rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between gap-3">
+                <div key={order.id} className="rounded-lg border border-border bg-muted/30 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-medium text-foreground text-sm truncate">{order.plan_title}</p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(order.created_at).toLocaleDateString()} • ${order.plan_price}
                     </p>
+                    <PaymentRecord id={order.id} trxId={order.trx_id} receiptPath={order.receipt_url} />
                     {order.admin_notes && (
                       <p className="text-xs text-primary mt-1 truncate">📝 {order.admin_notes}</p>
                     )}

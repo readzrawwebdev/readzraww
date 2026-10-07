@@ -1,73 +1,44 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { Loader2, Package, AlertCircle, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-interface Order {
-  id: string;
-  plan_title: string;
-  plan_price: number;
-  advance_amount: number;
-  status: string;
-  created_at: string;
-  receipt_url: string | null;
-  admin_notes: string | null;
-  project_details: string | null;
-}
-
-const statusColors: Record<string, string> = {
-  pending_review: "bg-yellow-50 text-yellow-700 border-yellow-200",
-  approved: "bg-green-50 text-green-700 border-green-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-  in_progress: "bg-blue-50 text-blue-700 border-blue-200",
-  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  cancelled: "bg-red-50 text-red-600 border-red-200",
-};
-
-const statusLabels: Record<string, string> = {
-  pending_review: "Pending Review",
-  approved: "Approved",
-  rejected: "Rejected",
-  in_progress: "In Progress",
-  completed: "Completed",
-  cancelled: "Cancelled",
-};
+import { Button } from "@/components/ui/button";
+import ConfirmAction from "@/components/ConfirmAction";
+import PaymentRecord from "@/components/PaymentRecord";
+import OrderLoadError from "@/components/OrderLoadError";
+import { useOrders } from "@/hooks/useOrders";
+import { statusColors, statusLabels, matchesOrderSearch, canCancelOrder, withRequestTimeout, requestErrorMessage, invoiceReference } from "@/lib/orders";
 
 const DashboardOrders = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [fetching, setFetching] = useState(true);
-  const [cancelling, setCancelling] = useState<string | null>(null);
-
-  const fetchOrders = async () => {
-    if (!user) return;
-    setFetching(true);
-    const { data } = await supabase
-      .from("orders")
-      .select("id, plan_title, plan_price, advance_amount, status, created_at, receipt_url, admin_notes, project_details")
-      .order("created_at", { ascending: false });
-    if (data) setOrders(data as Order[]);
-    setFetching(false);
-  };
-
-  useEffect(() => { fetchOrders(); }, [user]);
-
-  const cancelOrder = async (orderId: string) => {
-    setCancelling(orderId);
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: "cancelled" })
-      .eq("id", orderId);
-    if (error) {
-      toast({ title: "Failed to cancel", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Order cancelled" });
-      fetchOrders();
+  const { data: orders = [], isLoading: fetching, isFetching, error, refetch } = useOrders();
+  const [cancelId, setCancelId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
+  const filteredOrders = orders.filter(order => (filter === "all" || order.status === filter) && matchesOrderSearch(order, search));
+  const cancelOrder = async () => {
+    if (!user || !cancelId) return false;
+    try {
+      const { data, error } = await withRequestTimeout(supabase.from("orders")
+        .update({ status: "cancelled" }).eq("id", cancelId).eq("user_id", user.id)
+        .in("status", ["pending_review", "approved"]).select("id").maybeSingle());
+      if (error) throw error;
+      if (!data) {
+        toast({ title: "Order changed", description: "Refresh and check the latest status. This order may no longer be cancellable.", variant: "destructive" });
+        refetch();
+        return false;
+      }
+      toast({ title: "Order cancelled", description: "Contact ReadzRaw about any payment already sent." });
+      await refetch();
+      return true;
+    } catch (error) {
+      toast({ title: "Unable to cancel order", description: requestErrorMessage(error), variant: "destructive" });
+      return false;
     }
-    setCancelling(null);
   };
 
   return (
@@ -79,9 +50,18 @@ const DashboardOrders = () => {
         </a>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+        <input aria-label="Search orders" placeholder="Search invoice, TRX ID or package" value={search} onChange={e => setSearch(e.target.value)} className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm" />
+        <select aria-label="Filter order status" value={filter} onChange={e => setFilter(e.target.value)} className="rounded-md border border-input bg-background px-3 py-2 text-sm">
+          <option value="all">All statuses</option>
+          {Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <Button variant="outline" disabled={isFetching} onClick={() => refetch()}>Refresh</Button>
+      </div>
+      {error && <OrderLoadError error={error} retry={() => refetch()} busy={isFetching} />}
       {fetching ? (
         <div className="flex justify-center py-16"><Loader2 className="animate-spin text-primary" size={24} /></div>
-      ) : orders.length === 0 ? (
+      ) : error && orders.length === 0 ? null : orders.length === 0 ? (
         <div className="text-center py-16 rounded-xl border border-border bg-card shadow-card">
           <Package size={40} className="mx-auto text-muted-foreground mb-3" />
           <p className="text-muted-foreground mb-4">No orders yet</p>
@@ -89,13 +69,15 @@ const DashboardOrders = () => {
             Browse Services
           </a>
         </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="py-12 text-center"><p className="text-muted-foreground mb-3">No matching orders</p><Button variant="outline" onClick={() => { setSearch(""); setFilter("all"); }}>Clear filters</Button></div>
       ) : (
         <div className="space-y-4">
-          {orders.map((order) => (
+          {filteredOrders.map((order) => (
             <div key={order.id} className="rounded-xl border border-border bg-card p-5 shadow-card">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
                     <h3 className="font-heading font-bold text-foreground">{order.plan_title}</h3>
                     <span className={`shrink-0 rounded-full border px-3 py-0.5 text-xs font-medium ${statusColors[order.status] || "bg-muted"}`}>
                       {statusLabels[order.status] || order.status}
@@ -106,9 +88,10 @@ const DashboardOrders = () => {
                     <span>Ordered {new Date(order.created_at).toLocaleDateString()}</span>
                     <span>Total: ${order.plan_price}</span>
                     <span>Advance: ${order.advance_amount}</span>
-                    <span>{order.receipt_url ? "✅ Receipt uploaded" : "⏳ Receipt pending"}</span>
+
                   </div>
 
+                  <PaymentRecord id={order.id} trxId={order.trx_id} receiptPath={order.receipt_url} />
                   {order.project_details && (
                     <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{order.project_details}</p>
                   )}
@@ -125,15 +108,8 @@ const DashboardOrders = () => {
                 </div>
 
                 <div className="flex gap-2 shrink-0">
-                  {["pending_review", "approved"].includes(order.status) && (
-                    <button
-                      onClick={() => cancelOrder(order.id)}
-                      disabled={cancelling === order.id}
-                      className="flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
-                    >
-                      {cancelling === order.id ? <Loader2 size={12} className="animate-spin" /> : <AlertCircle size={12} />}
-                      Cancel
-                    </button>
+                  {canCancelOrder(order.status) && (
+                    <Button variant="outline" size="sm" className="text-destructive" onClick={() => setCancelId(order.id)}><AlertCircle size={14} /> Cancel order</Button>
                   )}
                 </div>
               </div>
@@ -141,6 +117,7 @@ const DashboardOrders = () => {
           ))}
         </div>
       )}
+      <ConfirmAction open={Boolean(cancelId)} onOpenChange={open => { if (!open) setCancelId(null); }} title="Cancel this order?" description={`This will cancel ${cancelId ? invoiceReference(cancelId) : "this order"}. Payments are not automatically refunded; contact ReadzRaw if you already paid.`} confirmLabel="Cancel order" destructive onConfirm={cancelOrder} />
     </DashboardLayout>
   );
 };
