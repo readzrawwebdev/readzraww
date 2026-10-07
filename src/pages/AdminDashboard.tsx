@@ -215,7 +215,7 @@ const AdminDashboard = () => {
           </h1>
           <Button variant="ghost" disabled={isFetching} onClick={() => fetchOrders()} className="ml-auto">
             <RefreshCw size={14} /> Refresh
-          </button>
+          </Button>
         </header>
 
         <main className="flex-1 p-4 lg:p-8">
@@ -364,7 +364,7 @@ const AdminDashboard = () => {
                           <td className="px-4 py-3">
                             <Button variant="ghost" size="sm" onClick={() => { setSelectedOrder(order); setAdminNotes(order.admin_notes || ""); }} aria-label={`View order for ${order.customer_name}`}>
                               <Eye size={14} /> View
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       ))}
